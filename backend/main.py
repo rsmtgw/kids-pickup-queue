@@ -171,6 +171,7 @@ def dev_get_maps_key():
 class DevKeysPayload(BaseModel):
     GOOGLE_MAPS_API_KEY: Optional[str] = None
     GOOGLE_GEMINI_API_KEY: Optional[str] = None
+    GOOGLE_GEMINI_MODEL: Optional[str] = None
     JWT_SECRET: Optional[str] = None
     NUM_PARENTS: Optional[int] = None
     TRAVEL_TIME_CACHE_TTL: Optional[int] = None
@@ -180,7 +181,7 @@ class DevKeysPayload(BaseModel):
 def dev_save_keys(payload: DevKeysPayload):
     """Save developer keys to backend/dev_keys.json and update process env for current run."""
     keys = _load_dev_keys()
-    for field in ("GOOGLE_MAPS_API_KEY", "GOOGLE_GEMINI_API_KEY", "JWT_SECRET", "NUM_PARENTS", "TRAVEL_TIME_CACHE_TTL"):
+    for field in ("GOOGLE_MAPS_API_KEY", "GOOGLE_GEMINI_API_KEY", "GOOGLE_GEMINI_MODEL", "JWT_SECRET", "NUM_PARENTS", "TRAVEL_TIME_CACHE_TTL"):
         val = getattr(payload, field)
         if val is not None:
             # store as string in dev keys / env to keep uniform types
@@ -247,6 +248,12 @@ PICKUP_ROAD_LENGTH_M    = float(os.getenv("PICKUP_ROAD_LENGTH_M",    "200"))
 PICKUP_SPEED_LIMIT_KMH  = float(os.getenv("PICKUP_SPEED_LIMIT_KMH",  "10"))
 # Time (seconds) for one child to get picked up at the pillar
 CHILD_PICKUP_TIME_S     = float(os.getenv("CHILD_PICKUP_TIME_S",     "10"))
+# Minimum dwell time (seconds) each car must spend at the destination/pillar before moving off.
+# Gemini uses this to space arrival recommendations so cars never leave sooner than this.
+PICKUP_DWELL_SEC        = float(os.getenv("PICKUP_DWELL_SEC",        "40"))
+# Minimum gap (seconds) between consecutive car arrivals at the destination.
+# Smart-schedule floors arrival_spacing at this value so cars never arrive closer together.
+ARRIVAL_GAP_SEC         = float(os.getenv("ARRIVAL_GAP_SEC",         "10"))
 # Derived: time a single car occupies one pillar (drive-through + pickup)
 _ROAD_TRAVERSE_S        = PICKUP_ROAD_LENGTH_M / (PICKUP_SPEED_LIMIT_KMH * 1000.0 / 3600.0)
 _SECONDS_PER_CAR        = _ROAD_TRAVERSE_S + CHILD_PICKUP_TIME_S
@@ -293,6 +300,11 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 _travel_time_cache: dict[str, dict] = {}
 # TTL for cached travel times (read from .env for testing; default 1h)
 _travel_time_cache_ttl = int(os.getenv("TRAVEL_TIME_CACHE_TTL", "3600"))  # seconds
+
+# Cache AI results to avoid burning Gemini quota on repeated calls
+# Key: endpoint name → {"result": …, "expires_at": float}
+_ai_result_cache: dict[str, dict] = {}
+_AI_CACHE_TTL = int(os.getenv("AI_CACHE_TTL", "60"))  # seconds (default 60 s)
 
 def _cache_key(lat: float, lng: float) -> str:
     return f"{lat:.5f},{lng:.5f}"
@@ -1173,6 +1185,13 @@ def when_to_leave(parent_id: int):
     if not api_key:
         raise HTTPException(status_code=500, detail="GOOGLE_GEMINI_API_KEY not set")
 
+    # ── Return cached result if still fresh (per parent) ────────────────────────
+    _cache_key_wtl = f"when_to_leave_{parent_id}"
+    _cached = _ai_result_cache.get(_cache_key_wtl)
+    if _cached and _cached["expires_at"] > time.time():
+        _logger.debug(f"WHEN-TO-LEAVE  serving cached result for parent_id={parent_id} (expires in {round(_cached['expires_at']-time.time(),0)}s)")
+        return _cached["result"]
+
     metrics = _compute_queue_metrics()
     distance_km = parent.get("distance_km", 5)
 
@@ -1202,7 +1221,7 @@ def when_to_leave(parent_id: int):
         kid_position = next((i+1 for i, s in enumerate(all_waiting) if s["kid_id"] == kid_id), None)
 
     # Compute queue prediction: how long until this kid's position is reached
-    avg_pickup_sec = max(metrics["avg_pickup_time_sec"], 15)
+    avg_pickup_sec = max(metrics["avg_pickup_time_sec"], PICKUP_DWELL_SEC)
     throughput = max(metrics["throughput_per_min"], 0.5)
     if kid_position:
         # Time until this kid's turn = (position - active slots) / throughput
@@ -1240,18 +1259,21 @@ CURRENT QUEUE METRICS:
 - Completed: {metrics['done']}
 - Avg pickup time: {avg_pickup_sec}s per kid
 - Throughput: {throughput} pickups/min
-- {PILLAR_COUNT} pillars, each handles 1 car at a time, 10s auto-confirm
+- {PILLAR_COUNT} pillars, each handles 1 car at a time
+- MANDATORY DWELL TIME: each car must stay at the pillar for at least {int(PICKUP_DWELL_SEC)}s before leaving
 - Queue pressure: {queue_pressure} (low=few waiting, medium=steady, high=crowded)
 - Estimated wait for kid's position: {est_wait_min} min
 
 SMART SCHEDULING RULES:
 1. Use the TRAFFIC travel time ({travel_time_traffic_min} min), not the base time
-2. If queue pressure is HIGH, delay departure so queue doesn't grow further
-3. If queue pressure is LOW, urge departure so queue isn't empty  
-4. Parent should arrive ~2-3 min before their kid's estimated pickup slot
-5. Account for traffic getting worse during rush hours (currently {traffic_condition})
-6. If traffic is HEAVY, factor in extra buffer time
-7. The queue at destination should ideally have {PILLAR_COUNT} to {PILLAR_COUNT * 2} cars waiting — not more
+2. CRITICAL: Each car occupies a pillar slot for a minimum of {int(PICKUP_DWELL_SEC)} seconds — use this as the floor for avg_pickup_sec when spacing arrivals
+3. Space parent departure times so no car arrives before the previous car has completed its {int(PICKUP_DWELL_SEC)}s dwell
+4. If queue pressure is HIGH, delay departure so queue doesn't grow further
+5. If queue pressure is LOW, urge departure so queue isn't empty  
+6. Parent should arrive ~2-3 min before their kid's estimated pickup slot
+7. Account for traffic getting worse during rush hours (currently {traffic_condition})
+8. If traffic is HEAVY, factor in extra buffer time
+9. The queue at destination should ideally have {PILLAR_COUNT} to {PILLAR_COUNT * 2} cars waiting — not more
 
 RESPOND WITH VALID JSON ONLY:
 {{
@@ -1298,6 +1320,7 @@ RESPOND WITH VALID JSON ONLY:
         }
         result["travel_info"] = tt
         result["metrics"] = metrics
+        _ai_result_cache[_cache_key_wtl] = {"result": result, "expires_at": time.time() + _AI_CACHE_TTL}
         _logger.info(f"WHEN-TO-LEAVE  parent={parent['name']} leave_now={result.get('should_leave_now')} "
                      f"in={result.get('leave_in_minutes')}min traffic={traffic_condition} "
                      f"travel={travel_time_traffic_min}min queue_pressure={queue_pressure}")
@@ -1682,7 +1705,7 @@ def dev_preview_prompt(parent_id: Optional[int] = None):
     prompt = f"""You are an AI smart scheduling agent for a school pickup queue.
 Schedule departure times for ONE parent using REAL-TIME TRAFFIC data.
 
-SYSTEM: {PILLAR_COUNT} pillars, 10s auto-confirm, ~{metrics['throughput_per_min']} pickups/min
+SYSTEM: {PILLAR_COUNT} pillars, mandatory {int(PICKUP_DWELL_SEC)}s dwell per car at destination, ~{metrics['throughput_per_min']} pickups/min. Space arrivals so no car reaches the pillar before the previous car has completed its {int(PICKUP_DWELL_SEC)}s dwell.
 
 PARENT:
 {json.dumps({'id': parent['id'], 'name': parent['name'], 'location': {'lat': parent['location_lat'], 'lng': parent['location_lng']}, 'distance_km': parent.get('distance_km',0)})}
@@ -1849,6 +1872,12 @@ def parent_admin_ai_recommendations():
     """Use AI to give batch departure recommendations for ALL parents at once.
     Falls back to a local distance-based schedule if AI is rate-limited."""
 
+    # ── Return cached result if still fresh ─────────────────────────────────
+    _cached = _ai_result_cache.get("parent_admin")
+    if _cached and _cached["expires_at"] > time.time():
+        _logger.debug(f"PARENT-ADMIN-AI  serving cached result (expires in {round(_cached['expires_at']-time.time(),0)}s)")
+        return _cached["result"]
+
     metrics = _compute_queue_metrics()
 
     # ── Build parent summaries with real traffic data ────────────────────────
@@ -2014,6 +2043,7 @@ Each schedule item: parent_id (int), leave_in_minutes (float ≥ 0), wave (int, 
             if "parent_name" not in item:
                 item["parent_name"] = parent_map.get(item.get("parent_id"), "Unknown")
         _logger.info(f"PARENT-ADMIN-AI  waves={result.get('total_waves')} parents={len(result.get('schedule', []))}")
+        _ai_result_cache["parent_admin"] = {"result": result, "expires_at": time.time() + _AI_CACHE_TTL}
         return result
     except Exception as e:
         error_str = str(e)
@@ -2114,7 +2144,13 @@ def ai_analyze_queue():
     api_key = get_config_key("GOOGLE_GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GOOGLE_GEMINI_API_KEY not set in environment. Get a free key at https://aistudio.google.com/")
-    
+
+    # ── Return cached result if still fresh ─────────────────────────────────
+    _cached = _ai_result_cache.get("ai_analyze")
+    if _cached and _cached["expires_at"] > time.time():
+        _logger.debug(f"AI-ANALYZE  serving cached result (expires in {round(_cached['expires_at']-time.time(),0)}s)")
+        return _cached["result"]
+
     metrics = _compute_queue_metrics()
     
     prompt = f"""You are an AI queue optimization expert for a kids pickup system at a school.
@@ -2135,7 +2171,7 @@ CURRENT QUEUE METRICS:
 SYSTEM CONSTRAINTS:
 - {PILLAR_COUNT} pillars (P1-P5), cars are assigned round-robin
 - Cars enter a ramp from main road, cruise to their pillar, then lane-change to pickup lane
-- 10-second auto-confirm countdown when car arrives at pillar
+- Each car must dwell at its pillar for a minimum of {int(PICKUP_DWELL_SEC)} seconds before departure (mandatory dwell time)
 - Cars must maintain following distance, batch coordination ensures same-batch cars confirm together
 
 RESPOND WITH VALID JSON ONLY (no markdown, no code fences):
@@ -2178,6 +2214,7 @@ RESPOND WITH VALID JSON ONLY (no markdown, no code fences):
                 analysis = {"error": "Could not parse AI response", "raw": response_text}
         analysis["metrics"] = metrics
         _logger.info(f"AI-ANALYZE  health={analysis.get('queue_health','?')} alert={analysis.get('parent_alert',{}).get('should_alert',False)}")
+        _ai_result_cache["ai_analyze"] = {"result": analysis, "expires_at": time.time() + _AI_CACHE_TTL}
         return analysis
     except Exception as e:
         _logger.error(f"AI-ANALYZE  Gemini API error: {e}")
@@ -2310,8 +2347,10 @@ def ai_smart_schedule():
 
     # Arrival spacing: how many minutes between each successive parent's arrival
     # Default: throughput-based (pack at max sustainable rate).
-    _min_safe_spacing = round(1.0 / THEORETICAL_THROUGHPUT_PER_MIN, 3)
-    arrival_spacing = round(1.0 / throughput, 3)
+    # Hard floor: consecutive cars must be at least ARRIVAL_GAP_SEC apart at the destination.
+    _dwell_gap_min = round(ARRIVAL_GAP_SEC / 60.0, 4)   # 10s → 0.1667 min
+    _min_safe_spacing = max(round(1.0 / THEORETICAL_THROUGHPUT_PER_MIN, 3), _dwell_gap_min)
+    arrival_spacing = max(round(1.0 / throughput, 3), _dwell_gap_min)
     # ── Period constraint ────────────────────────────────────────────────────
     # If PICKUP_PERIOD_MIN is set, tighten arrival_spacing so all N parents
     # arrive within (PICKUP_PERIOD_MIN - wave_drain_min) minutes of the first.
@@ -2336,6 +2375,16 @@ def ai_smart_schedule():
                 f" — ignoring period constraint, using throughput spacing={arrival_spacing}min"
             )
 
+    # Re-apply dwell floor after period constraint may have reduced spacing.
+    # This guarantees consecutive arrivals are always >= PICKUP_DWELL_SEC apart regardless
+    # of throughput or period settings.
+    if arrival_spacing < _dwell_gap_min:
+        _logger.debug(
+            f"SMART-SCHED-SPACING  arrival gap floor applied: {arrival_spacing}min → {_dwell_gap_min}min"
+            f" ({int(ARRIVAL_GAP_SEC)}s arrival gap guarantee)"
+        )
+        arrival_spacing = _dwell_gap_min
+
     # If queue is already near-full, hold off until it drains to target_queue_min
     if current_waiting >= target_queue_max:
         queue_backlog_delay = (current_waiting - target_queue_min) / throughput
@@ -2345,34 +2394,42 @@ def ai_smart_schedule():
     else:
         queue_backlog_delay = 0  # queue is thin/empty → start filling immediately
 
-    # last_actual_arrival tracks the post-clamp arrival of the previous parent so
-    # each new desired slot is anchored on the *real* (not desired) previous arrival.
-    # This guarantees true arrival_spacing gaps even when early parents are clamped to
-    # leave_in=0 (because their travel time exceeds the desired slot).
-    last_actual_arrival = queue_backlog_delay
+    # ── Wave-based scheduling ────────────────────────────────────────────────
+    # All PILLAR_COUNT cars in a wave share the same target arrival time so they
+    # pull up simultaneously (one per pillar).  Waves are separated by exactly
+    # ARRIVAL_GAP_SEC seconds so the previous wave clears before the next arrives.
+    #
+    #   wave_slot(n) = queue_backlog_delay + (n-1) * _gap_between_waves_min
+    #   leave_in     = wave_slot - travel_time_traffic - traffic_buffer
+    #
+    # Cars with longer travel times leave earlier; everyone in the same wave
+    # targets the identical arrival minute.
+    # ────────────────────────────────────────────────────────────────────────
+    _gap_between_waves_min = round(ARRIVAL_GAP_SEC / 60.0, 4)  # 10s → 0.1667 min
+    total_waves = (len(parents_not_scanned) + wave_size - 1) // wave_size if parents_not_scanned else 0
+
     schedule = []
     for i, pt in enumerate(parents_not_scanned):
         wave_num = (i // wave_size) + 1
 
-        # Desired arrival: spacing after last actual arrival (i=0 → queue_backlog_delay)
-        desired_arrival = last_actual_arrival if i == 0 else last_actual_arrival + arrival_spacing
+        # All cars in this wave aim for the same arrival slot
+        wave_slot = queue_backlog_delay + (wave_num - 1) * _gap_between_waves_min
 
-        # Departure = desired_arrival minus travel time
-        departure_delay = desired_arrival - pt["travel_time_traffic_min"]
-
-        # Traffic buffer: pad departure for unpredictable conditions
+        # Departure = target arrival minus actual (traffic) travel time
         traffic_buffer = {"heavy": 2, "moderate": 1}.get(pt["traffic_condition"], 0)
+        departure_delay = wave_slot - pt["travel_time_traffic_min"] - traffic_buffer
 
-        leave_in = max(0, round(departure_delay - traffic_buffer, 1))
+        leave_in = max(0, round(departure_delay, 1))
         est_arrival = round(leave_in + pt["travel_time_traffic_min"], 1)
-        last_actual_arrival = est_arrival  # anchor for next parent
 
         if pt["traffic_condition"] in ("heavy", "moderate"):
-            reason = f"{pt['traffic_condition']} traffic (+{traffic_buffer}min buffer)"
+            reason = (f"wave {wave_num} – {pt['traffic_condition']} traffic "
+                      f"(+{traffic_buffer}min buffer), target arrival at {round(wave_slot,2)}min")
         elif leave_in == 0:
-            reason = "leave now – already in your departure window"
+            reason = f"wave {wave_num} – leave now (travel time exceeds target slot)"
         else:
-            reason = f"slot {i+1} – arrival in {round(desired_arrival,1)}min"
+            reason = (f"wave {wave_num} of {total_waves} – "
+                      f"all {wave_size} cars target arrival at {round(wave_slot*60,0):.0f}s from now")
 
         schedule.append({
             "parent_id": pt["parent_id"],
@@ -2384,7 +2441,7 @@ def ai_smart_schedule():
             "estimated_arrival_min": est_arrival,
             "reason": reason,
             "traffic_buffer_min": traffic_buffer,
-            "arrival_slot": round(desired_arrival, 1),
+            "arrival_slot": round(wave_slot, 2),
         })
 
     traffic_summary = {
@@ -2402,13 +2459,12 @@ def ai_smart_schedule():
     elif current_waiting > PILLAR_COUNT:
         queue_pressure = "medium"
 
-    total_waves = (len(parents_not_scanned) + wave_size - 1) // wave_size if parents_not_scanned else 0
-
     result = {
         "schedule": schedule,
         "total_waves": total_waves,
-        "arrival_spacing_min": round(arrival_spacing, 2),
-        "wave_interval_min": round(wave_size / throughput, 1) if throughput > 0 else 4,
+        "wave_size": wave_size,
+        "wave_gap_sec": int(ARRIVAL_GAP_SEC),
+        "wave_gap_min": round(_gap_between_waves_min, 4),
         "already_scanned": len(parents_scanned),
         "yet_to_schedule": len(parents_not_scanned),
         "traffic_summary": traffic_summary,
@@ -2417,10 +2473,11 @@ def ai_smart_schedule():
         "queue_pressure": queue_pressure,
         "target_queue_size": {"min": target_queue_min, "max": target_queue_max},
         "throughput_per_min": throughput,
-        "theoretical_session_floor_min": round(len(parents_not_scanned) / throughput, 1) if throughput > 0 else None,
-        "summary": (f"Steady-stream schedule: {len(schedule)} parents across {total_waves} waves, "
-                    f"arrivals every {round(arrival_spacing,1)}min. "
-                    f"Session floor ≈{round(len(parents_not_scanned)/throughput,1) if throughput > 0 else '?'}min. "
+        "dwell_sec": int(PICKUP_DWELL_SEC),
+        "theoretical_session_floor_min": round(total_waves * _gap_between_waves_min, 1) if total_waves else None,
+        "summary": (f"Wave schedule: {len(schedule)} parents in {total_waves} waves of {wave_size}. "
+                    f"Each wave: {wave_size} cars arrive simultaneously (1 per pillar). "
+                    f"Gap between waves: {int(ARRIVAL_GAP_SEC)}s. "
                     f"Avg travel: {round(avg_travel,1)}min. "
                     f"Traffic: {traffic_summary['light']}L/{traffic_summary['moderate']}M/{traffic_summary['heavy']}H. "
                     f"Queue pressure: {queue_pressure}."),
@@ -2430,7 +2487,7 @@ def ai_smart_schedule():
 
     # Log all output schedule
     _logger.debug(f"AI-SMART-SCHEDULE OUTPUT: {json.dumps(result)}")
-    _logger.info(f"AI-SMART-SCHEDULE  waves={total_waves} spacing={round(arrival_spacing,1)}min "
+    _logger.info(f"AI-SMART-SCHEDULE  waves={total_waves} wave_size={wave_size} gap={int(ARRIVAL_GAP_SEC)}s "
                  f"parents={len(schedule)} queue_pressure={queue_pressure} avg_travel={round(avg_travel,1)}min")
     return result
 
