@@ -1,0 +1,404 @@
+/* ── Parent Portal ─────────────────────────────────────────────────────── */
+
+.parent-portal {
+  --bg: #0d0d1a;
+  --card-bg: #14142a;
+  --card-border: #ffffff12;
+  --accent: #3880ff;
+  --accent-glow: #3880ff44;
+  --green: #2dd36f;
+  --yellow: #ffc409;
+  --red: #eb445a;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Login Screen ───────────────────────────────────────────────────────── */
+.pp-login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  padding: 24px;
+}
+.pp-login-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 40px 32px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+}
+.pp-login-card h1 {
+  font-size: 28px;
+  margin: 0 0 6px;
+}
+.pp-login-card .pp-subtitle {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-bottom: 28px;
+}
+.pp-login-card .pp-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+}
+.pp-login-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #ffffff22;
+  background: #0a0a1e;
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+.pp-login-input:focus {
+  border-color: var(--accent);
+}
+.pp-login-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.pp-login-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pp-login-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.pp-login-error {
+  color: var(--red);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+/* ── Dashboard Layout ───────────────────────────────────────────────────── */
+.pp-dashboard {
+  padding: 16px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.pp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.pp-header h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.pp-header .pp-logout {
+  background: none;
+  border: 1px solid #ffffff22;
+  color: var(--text-dim);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pp-header .pp-logout:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.pp-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.pp-card h3 {
+  font-size: 14px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin: 0 0 14px;
+}
+
+/* ── Kids Cards ─────────────────────────────────────────────────────────── */
+.pp-kids-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.pp-kid-card {
+  background: #1a1a35;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 16px;
+  position: relative;
+}
+.pp-kid-card .kid-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.pp-kid-card .kid-grade {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+}
+.pp-kid-card .kid-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.kid-status.scanned {
+  background: var(--green);
+  color: #000;
+}
+.kid-status.waiting {
+  background: var(--yellow);
+  color: #000;
+}
+.kid-status.not-scanned {
+  background: #ffffff15;
+  color: var(--text-dim);
+}
+.kid-status.done {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Location Badge ─────────────────────────────────────────────────────── */
+.pp-location {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pp-location-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pp-location-info .loc-label {
+  font-size: 13px;
+  color: var(--text);
+}
+.pp-location-info .loc-detail {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.pp-loc-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pp-loc-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── AI Departure Card ──────────────────────────────────────────────────── */
+.pp-ai-card {
+  border-color: var(--accent-glow);
+}
+.pp-ai-card.leave-now {
+  border-color: var(--green);
+  box-shadow: 0 0 20px #2dd36f22;
+}
+.pp-ai-card.wait {
+  border-color: var(--yellow);
+}
+.pp-ai-msg {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+.pp-ai-msg.leave-now { color: var(--green); }
+.pp-ai-msg.wait { color: var(--yellow); }
+
+.pp-ai-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.pp-ai-detail {
+  background: #0a0a1e;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.pp-ai-detail .label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pp-ai-detail .value {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.pp-ai-reasoning {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  background: #0a0a1e;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.pp-ai-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: opacity 0.2s;
+}
+.pp-ai-btn:disabled {
+  opacity: 0.5;
+}
+.pp-ai-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+/* ── Teacher Sequence ───────────────────────────────────────────────────── */
+.pp-teacher-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pp-teacher-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #0a0a1e;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+}
+.pp-teacher-row.prepare-now { border-left-color: var(--red); }
+.pp-teacher-row.get-ready { border-left-color: var(--yellow); }
+.pp-teacher-row.upcoming { border-left-color: #ffffff22; }
+.pp-teacher-row .seq-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.pp-teacher-row .row-info {
+  flex: 1;
+  min-width: 0;
+}
+.pp-teacher-row .row-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.pp-teacher-row .row-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.pp-teacher-row .action-badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.action-badge.prepare-now { background: var(--red); color: #fff; }
+.action-badge.get-ready { background: var(--yellow); color: #000; }
+.action-badge.upcoming { background: #ffffff10; color: var(--text-dim); }
+
+/* ── Section Tabs ───────────────────────────────────────────────────────── */
+.pp-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.pp-tab {
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px solid #ffffff18;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.pp-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* ── Loading & Empty States ─────────────────────────────────────────────── */
+.pp-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.pp-spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #ffffff15;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: pp-spin 0.8s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes pp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Traffic Badges ───────────────────────────────────────────────────── */
+.traffic-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+.traffic-badge.traffic-light   { background: #162d22; color: #4ade80; border: 1px solid #166534; }
+.traffic-badge.traffic-moderate { background: #2d2210; color: #fbbf24; border: 1px solid #854d0e; }
+.traffic-badge.traffic-heavy   { background: #2d1010; color: #f87171; border: 1px solid #991b1b; }
+.traffic-badge.traffic-unknown { background: #1a1a2e; color: #94a3b8; border: 1px solid #334155; }

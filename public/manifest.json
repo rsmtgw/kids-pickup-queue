@@ -1,0 +1,16 @@
+{
+  "short_name": "Kids Queue",
+  "name": "Kids Pickup Queue",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#3880ff",
+  "background_color": "#ffffff"
+}

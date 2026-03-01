@@ -1,0 +1,266 @@
+/* ── Report page layout ─────────────────────────────────────── */
+.report-content {
+  --background: #0f0f1a;
+}
+
+/* ── Summary stats row ──────────────────────────────────────── */
+.report-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 14px 8px;
+}
+
+.rstat {
+  flex: 1;
+  min-width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rstat.total   { border-color: rgba(140, 140, 200, 0.35); }
+.rstat.waiting { border-color: rgba(180, 180, 100, 0.4);  }
+.rstat.arrived { border-color: rgba(255, 190,  60, 0.5);  }
+.rstat.done    { border-color: rgba( 60, 200, 100, 0.5);  }
+.rstat.avg     { border-color: rgba(100, 160, 255, 0.4);  }
+
+.rstat-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.rstat-lbl {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 2px;
+}
+
+/* ── Refresh hint ───────────────────────────────────────────── */
+.report-refresh-hint {
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.3);
+  padding-bottom: 10px;
+}
+
+/* ── Live Queue panel ───────────────────────────────────────── */
+.live-queue {
+  padding: 0 14px 14px;
+}
+
+.lq-title {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 8px;
+}
+
+.lq-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.lq-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.38);
+  min-width: 96px;
+  padding-top: 5px;
+  flex-shrink: 0;
+}
+
+.lq-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex: 1;
+}
+
+.lq-pill {
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.lq-empty {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.25);
+  font-weight: 400;
+}
+
+.lq-pillar-slots {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.lq-pillar-slot {
+  flex: 1;
+  min-width: 68px;
+  max-width: 130px;
+  border-radius: 8px;
+  padding: 6px 9px;
+  border: 1.5px solid;
+}
+
+.lq-p-header {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.lq-p-kid {
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lq-p-seq {
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.report-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.95rem;
+}
+
+/* ── Table wrapper ──────────────────────────────────────────── */
+.report-table-wrap {
+  overflow-x: auto;
+  padding: 0 10px 80px;
+}
+
+/* ── Table ──────────────────────────────────────────────────── */
+.report-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  color: #e0e0ee;
+}
+
+.report-table thead tr {
+  background: rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.report-table th {
+  padding: 9px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.65);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.report-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.report-table th.sortable:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.report-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+/* ── Row states ─────────────────────────────────────────────── */
+.report-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.report-table tbody tr.row-done {
+  background: rgba(50, 200, 100, 0.06);
+}
+
+.report-table tbody tr.row-arrived {
+  background: rgba(255, 195, 60, 0.07);
+}
+
+/* ── Cell styles ────────────────────────────────────────────── */
+.td-seq {
+  font-weight: 700;
+  color: rgba(180, 180, 255, 0.9);
+  width: 48px;
+}
+
+.td-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.td-time {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+}
+
+.td-dur {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: rgba(140, 200, 255, 0.85);
+  white-space: nowrap;
+}
+
+/* ── Pillar badge ───────────────────────────────────────────── */
+.pillar-badge {
+  display: inline-block;
+  background: rgba(100, 120, 255, 0.25);
+  border: 1px solid rgba(100, 120, 255, 0.5);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #aac0ff;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* ── Status chip ────────────────────────────────────────────── */
+.status-chip {
+  margin: 0;
+  height: 24px;
+  font-size: 0.72rem;
+}
+
+.status-chip ion-label {
+  font-size: 0.72rem;
+}

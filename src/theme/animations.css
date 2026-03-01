@@ -1,0 +1,119 @@
+/* Animation Classes */
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.slide-in-right {
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+.slide-out-left {
+  animation: slideOutToLeft 0.5s ease-out;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+.bounce {
+  animation: bounce 1s infinite;
+}
+
+/* Queue specific animations */
+.queue-item-enter {
+  animation: slideInFromRight 0.5s ease-out;
+}
+
+.queue-item-exit {
+  animation: slideOutToLeft 0.5s ease-out;
+}
+
+.queue-item-move {
+  transition: all 0.5s ease-out;
+}
+
+/* Position change animation */
+@keyframes moveUp {
+  from {
+    transform: translateY(20px);
+    background-color: rgba(45, 211, 111, 0.2);
+  }
+  to {
+    transform: translateY(0);
+    background-color: transparent;
+  }
+}
+
+.position-change {
+  animation: moveUp 0.6s ease-out;
+}
+
+/* Notification badge pulse */
+@keyframes notificationPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(235, 68, 90, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 10px rgba(235, 68, 90, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(235, 68, 90, 0);
+  }
+}
+
+.notification-pulse {
+  animation: notificationPulse 2s infinite;
+}

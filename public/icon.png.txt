@@ -1,0 +1,23 @@
+<!-- Icon placeholder - Replace with actual icon -->
+<!-- For now, you can use an icon generator like:
+  - https://icon.kitchen/
+  - https://www.figma.com/
+  - https://iconscout.com/icon-editor
+  
+Recommended specs:
+- Size: 512x512px or 1024x1024px
+- Format: PNG with transparency
+- Design: Simple, recognizable icon representing kids/queue/pickup
+- Colors: Match app theme (blue #3880ff, purple #667eea)
+
+Suggested icon ideas:
+🚗👶 - Car with child icon
+📋✓ - Clipboard with checkmark
+👨‍👩‍👧‍👦🔔 - Family with notification bell
+🏫🚗 - School with car
+
+Place the final icon file here as "icon.png"
+-->
+
+📁 This file serves as a placeholder.
+Replace it with your actual app icon (512x512 PNG).

@@ -1,0 +1,261 @@
+/* ── Page layout ─────────────────────────────────────────────── */
+.pillar-manager-content {
+  --background: #f4f5f8;
+}
+
+/* ── Pillar selector ─────────────────────────────────────────── */
+.pillar-selector {
+  background: #fff;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.pillar-selector-label {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.pillar-buttons {
+  display: flex;
+  gap: 10px;
+}
+.pillar-btn {
+  flex: 1;
+  padding: 14px 0;
+  border-radius: 12px;
+  border: 2px solid #e0e0e0;
+  background: #f9f9f9;
+  font-size: 18px;
+  font-weight: 700;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.pillar-btn:hover {
+  border-color: #3880ff;
+  color: #3880ff;
+  background: #eef3ff;
+}
+.pillar-btn.active {
+  background: #3880ff;
+  border-color: #3880ff;
+  color: #fff;
+  box-shadow: 0 3px 10px #3880ff55;
+  transform: translateY(-2px);
+}
+
+/* ── No-pillar hint ──────────────────────────────────────────── */
+.no-pillar-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 24px;
+  color: #aaa;
+  gap: 12px;
+}
+.no-pillar-hint .hint-icon {
+  font-size: 52px;
+}
+.no-pillar-hint p {
+  font-size: 15px;
+  margin: 0;
+}
+
+/* ── Stats bar ───────────────────────────────────────────────── */
+.pm-stats-bar {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  padding: 12px 16px;
+  gap: 8px;
+}
+.pm-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 4px;
+  border-radius: 10px;
+}
+.pm-stat.total    { background: #f0f0f5; }
+.pm-stat.queue    { background: #e8f0ff; }
+.pm-stat.arrived  { background: #fff8e0; }
+.pm-stat.done     { background: #e5f9e5; }
+
+.stat-num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+.pm-stat.total   .stat-num { color: #444; }
+.pm-stat.queue   .stat-num { color: #3880ff; }
+.pm-stat.arrived .stat-num { color: #e6a800; }
+.pm-stat.done    .stat-num { color: #16a34a; }
+
+.stat-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Flash message ───────────────────────────────────────────── */
+.pm-flash {
+  margin: 10px 16px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  animation: fadeInOut 3s ease forwards;
+}
+@keyframes fadeInOut {
+  0%   { opacity: 0; transform: translateY(-4px); }
+  10%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Complete banner ─────────────────────────────────────────── */
+.pm-complete-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px 16px;
+  padding: 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  gap: 6px;
+  box-shadow: 0 4px 14px #22c55e44;
+}
+.pm-complete-banner ion-icon {
+  font-size: 22px;
+}
+
+/* ── Loading / empty ─────────────────────────────────────────── */
+.pm-loading, .pm-empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: #888;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── Kid cards ───────────────────────────────────────────────── */
+.pm-card-list {
+  padding: 12px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pm-kid-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 1px 6px #0001;
+  border-left: 5px solid #e0e0e0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.pm-kid-card.done {
+  border-left-color: #22c55e;
+  background: #f0fdf4;
+}
+.pm-kid-card.car-arrived-pulse {
+  border-left-color: #f59e0b;
+  animation: arrived-pulse 1.4s ease-in-out infinite;
+}
+@keyframes arrived-pulse {
+  0%, 100% { box-shadow: 0 1px 6px #0001; }
+  50%       { box-shadow: 0 0 0 4px #fde68a88, 0 4px 16px #f59e0b33; }
+}
+
+.pm-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.pm-seq-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #3880ff;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pm-kid-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pm-kid-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pm-elapsed-timer {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3880ff;
+  background: rgba(56, 128, 255, 0.08);
+  border-radius: 6px;
+  padding: 1px 6px;
+  letter-spacing: 1px;
+  align-self: flex-start;
+}
+.pm-status-chip {
+  --padding-start: 6px;
+  --padding-end: 6px;
+  height: 24px;
+  font-size: 12px;
+  margin: 0;
+}
+
+.pm-card-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.confirm-btn {
+  --border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.done-check {
+  font-size: 32px;
+  color: #16a34a;
+}
+.pm-waiting-label {
+  font-size: 12px;
+  color: #aaa;
+  font-style: italic;
+}

@@ -1,0 +1,137 @@
+.admin-content {
+  --background: #f5f5f5;
+}
+
+.admin-container {
+  padding: 16px;
+  padding-bottom: 80px;
+}
+
+.stats-overview-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  margin-bottom: 16px;
+}
+
+.stats-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.overview-stat {
+  text-align: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.overview-stat.highlight {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.overview-value {
+  font-size: 32px;
+  font-weight: bold;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.overview-label {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+ion-segment {
+  margin-bottom: 16px;
+}
+
+.admin-queue-list {
+  padding: 0;
+  margin-top: 16px;
+}
+
+.admin-queue-card {
+  margin-bottom: 12px;
+  border-left: 4px solid var(--ion-color-primary);
+}
+
+.admin-queue-card.ready {
+  border-left-color: var(--ion-color-success);
+  background: linear-gradient(to right, rgba(45, 211, 111, 0.05), white);
+}
+
+.admin-position {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  color: white;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: bold;
+  margin-right: 12px;
+}
+
+.admin-child-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.admin-child-grade {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin-bottom: 8px;
+}
+
+.admin-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.admin-chip {
+  height: 28px;
+  font-size: 12px;
+}
+
+.admin-parent-info {
+  font-size: 13px;
+  color: var(--ion-color-medium);
+  margin-top: 4px;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--ion-color-light);
+  justify-content: flex-end;
+}
+
+.admin-actions ion-button {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  font-size: 13px;
+}
+
+@media (max-width: 400px) {
+  .stats-overview-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-actions {
+    flex-direction: column;
+  }
+  
+  .admin-actions ion-button {
+    width: 100%;
+  }
+}

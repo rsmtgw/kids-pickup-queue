@@ -1,0 +1,711 @@
+.visualization-content {
+  --background: #f0f0f0;
+}
+
+.visualization-container {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.visualization-scene {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  background: #e8e8e8;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.title-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  z-index: 10;
+}
+
+/* Main Road - Horizontal Layout */
+.main-road-horizontal {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: #444;
+  border-top: 3px solid #666;
+  border-bottom: 3px solid #666;
+  z-index: 3;
+}
+
+.road-center-line-horizontal {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  height: 3px;
+  background: repeating-linear-gradient(
+    to right,
+    white 0px,
+    white 30px,
+    transparent 30px,
+    transparent 50px
+  );
+  opacity: 0.6;
+}
+
+.road-name-label {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffc409;
+  color: #000;
+  padding: 6px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 13px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 15;
+}
+
+.road-lines {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 15px;
+  padding: 0 10px;
+}
+
+.dash {
+  width: 40px;
+  height: 3px;
+  background: white;
+  opacity: 0.8;
+}
+
+.static-cars-horizontal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.static-car-horizontal {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%) rotate(180deg);
+  width: 50px;
+  height: 30px;
+  background: #666;
+  border-radius: 8px 8px 4px 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  animation: floatCar 3s ease-in-out infinite;
+}
+
+.static-car .car-windshield {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  right: 8px;
+  height: 12px;
+  background: rgba(100, 180, 255, 0.6);
+  border-radius: 4px 4px 0 0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.static-car .car-wheel {
+  position: absolute;
+  bottom: -4px;
+  width: 10px;
+  height: 10px;
+  background: #222;
+  border-radius: 50%;
+  border: 2px solid #444;
+}
+
+.static-car .car-wheel-left {
+  left: 5px;
+}
+
+.static-car .car-wheel-right {
+  right: 5px;
+}
+
+@keyframes floatCar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* Entry Arrow - positioned on the right */
+.entry-arrow {
+  position: absolute;
+  top: 145px;
+  right: 60px;
+  text-align: center;
+  z-index: 5;
+}
+
+.arrow-label {
+  background: #10dc60;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.arrow-left {
+  font-size: 32px;
+  color: #10dc60;
+  animation: bounceLeft 1.5s infinite;
+}
+
+@keyframes bounceLeft {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-10px); }
+}
+
+.arrow-down {
+  font-size: 32px;
+  color: #10dc60;
+  animation: bounce 1.5s infinite;
+}
+
+/* Scan Station integrated into road - positioned on the right */
+.scan-station-inline {
+  position: absolute;
+  top: 50%;
+  right: 150px;
+  transform: translateY(-50%);
+  width: 120px;
+  height: 80px;
+  background: #ffeb3b;
+  border: 4px solid #ffc107;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4); }
+  50% { box-shadow: 0 4px 20px rgba(255, 193, 7, 0.8); }
+}
+
+@keyframes viz-countdown-pulse {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.3); }
+}
+
+.scan-box {
+  background: white;
+  border: 3px solid #333;
+  padding: 8px 12px;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.scan-box small {
+  font-size: 10px;
+  font-weight: normal;
+  color: #666;
+}
+
+.next-pillar-indicator {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #10dc60, #0bb94f);
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+/* Vertical Connector - connects to Pickup Lane */
+.road-connector-vertical-alternate {
+  position: absolute;
+  top: 160px;
+  left: 170px;
+  width: 80px;
+  height: 240px;
+  background: #444;
+  border-left: 3px solid #666;
+  border-right: 3px solid #666;
+  z-index: 2;
+}
+
+.road-connector-vertical-alternate::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  background: repeating-linear-gradient(
+    to bottom,
+    white 0px,
+    white 20px,
+    transparent 20px,
+    transparent 40px
+  );
+  opacity: 0.6;
+}
+
+/* Horizontal connector piece to join Pickup Lane */
+.lane-b-connector {
+  position: absolute;
+  top: 400px;
+  left: 250px;
+  width: 100px;
+  height: 80px;
+  background: #555;
+  border-radius: 0 8px 8px 0;
+  z-index: 1;
+}
+
+.lane-b-connector::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -80px;
+  width: 80px;
+  height: 80px;
+  background: #555;
+  border-top: 3px solid #666;
+  border-bottom: 3px solid #666;
+  transform: translateY(-50%);
+}
+
+.connector-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  color: #10dc60;
+  animation: bounce 1.5s infinite;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+/* Left turn arrow indicator */
+.turn-left-arrow {
+  position: absolute;
+  top: 145px;
+  left: 230px;
+  font-size: 40px;
+  color: #ffc107;
+  animation: pulseArrow 1.5s infinite;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+@keyframes pulseArrow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+  50% { transform: translate(-50%, -50%) translateY(10px); }
+}
+
+/* Lanes */
+.lane {
+  position: absolute;
+  left: 250px;
+  right: 20px;
+  height: 140px;
+  background: #666;
+  border-radius: 8px;
+}
+
+.lane-b {
+  top: 400px;
+  background: #555;
+}
+
+/* Pickup zone indicator - upper part of lane */
+.lane-b::before {
+  content: 'PICKUP ZONE';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  z-index: 1;
+}
+
+/* Visual separator showing pickup area */
+.lane-b::after {
+  content: '';
+  position: absolute;
+  top: 60px;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.3) 0px,
+    rgba(255, 255, 255, 0.3) 15px,
+    transparent 15px,
+    transparent 30px
+  );
+  z-index: 1;
+}
+
+.lane-label {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 15px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.lane-content {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  height: 100%;
+  padding: 15px 20px;
+}
+
+/* Kid Positions */
+.kid-position {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.position-marker {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #f4a261, #e76f51);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 3px solid white;
+}
+
+.kid-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.kid-number {
+  width: 30px;
+  height: 30px;
+  background: #3880ff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.kid-body {
+  width: 30px;
+  height: 40px;
+  background: linear-gradient(180deg, #3880ff, #2d5cc5);
+  border-radius: 15px 15px 8px 8px;
+  position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.kid-body::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: -8px;
+  width: 8px;
+  height: 15px;
+  background: #3880ff;
+  border-radius: 4px;
+}
+
+.kid-body::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: -8px;
+  width: 70px;
+  height: 40px;
+  z-index: 20;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+.car-body {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px 10px 6px 6px;
+  background: inherit;
+}
+
+.car-roof {
+  position: absolute;
+  top: 8px;
+  left: 15px;
+  right: 15px;
+  height: 18px;
+  background: inherit;
+  filter: brightness(0.85);
+  border-radius: 8px 8px 0 0;
+}
+
+.car-windshield {
+  position: absolute;
+  top: 10px;
+  left: 18px;
+  right: 18px;
+  height: 14px;
+  background: linear-gradient(180deg, rgba(100, 180, 255, 0.7), rgba(100, 180, 255, 0.4));
+  border-radius: 6px 6px 0 0;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.car-wheel {
+  position: absolute;
+  bottom: -5px;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle, #333, #000);
+  border-radius: 50%;
+  animation: wheelSpin 1s linear infinite;
+}
+
+.car-wheel-left {
+  left: 8px;
+}
+
+.car-wheel-right {
+  right: 8px;
+}
+
+@keyframes wheelSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.car-headlight {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: #ffeb3b;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(255, 235, 59, 0.8);
+}
+
+.car-headlight-left {
+  left: 2px;
+}
+
+.car-headlight-right {
+  right: 2px;
+}
+
+/* Animated Cars */
+.animated-car {
+  position: absolute;
+  width: 70px;
+  height: 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.animated-car:hover {
+  transform: scale(1.1);
+}
+
+.road-descriptions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.road-desc {
+  padding: 10px;
+  background: #f8f9fa;
+  border-left: 4px solid #667eea;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.road-desc strong {
+  color: #333;
+  display: block;
+  margin-bottom: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.animated-car::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  height: 15px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 5px;
+}
+
+.car-number {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 2px solid #333;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.car-pillar-badge {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #10dc60, #0bb94f);
+  color: white;
+  border: 2px solid white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+/* Road Lines Horizontal */
+.road-lines-horizontal {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 20px;
+  padding: 0 20px;
+}
+
+.dash-horizontal {
+  width: 50px;
+  height: 3px;
+  background: white;
+  opacity: 0.6;
+}
+
+/* Legend */
+.legend {
+  margin-top: 24px;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.legend h3 {
+  margin-top: 0;
+  color: #667eea;
+  font-size: 18px;
+}
+
+.legend ol {
+  margin: 12px 0 0 20px;
+  padding: 0;
+}
+
+.legend li {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .visualization-scene {
+    height: 500px;
+  }
+
+  .lane-content {
+    padding: 10px;
+  }
+
+  .kid-avatar {
+    transform: scale(0.8);
+  }
+
+  .animated-car {
+    transform: scale(0.8);
+  }
+
+  .legend {
+    font-size: 13px;
+  }
+}

@@ -1,0 +1,81 @@
+.check-in-content {
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.check-in-container {
+  padding: 16px;
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  margin-bottom: 16px;
+}
+
+.info-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.info-section:last-child {
+  margin-bottom: 0;
+}
+
+.info-icon {
+  font-size: 32px;
+  color: var(--ion-color-primary);
+}
+
+.info-section h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.info-section p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ion-color-medium);
+}
+
+.child-card {
+  margin: 12px 0;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.child-card.selected {
+  border-color: var(--ion-color-primary);
+  box-shadow: 0 8px 16px rgba(56, 128, 255, 0.3);
+  transform: scale(1.02);
+}
+
+.child-card.checked-in {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.child-card ion-item {
+  --padding-start: 16px;
+  --inner-padding-end: 16px;
+}
+
+.child-card h2 {
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.child-card p {
+  color: var(--ion-color-medium);
+  font-size: 14px;
+}
+
+.check-in-button {
+  margin-top: 24px;
+  --background: linear-gradient(90deg, var(--ion-color-success) 0%, #2dd36f 100%);
+  font-weight: 600;
+  font-size: 18px;
+  height: 56px;
+}

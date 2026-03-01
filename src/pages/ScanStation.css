@@ -1,0 +1,115 @@
+.scan-station-content {
+  --background: #f4f5f8;
+}
+
+/* ── Centered loading ─────────────────────────────────── */
+.scan-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 16px;
+  color: var(--ion-color-medium);
+  gap: 12px;
+}
+
+/* ── Stats row ────────────────────────────────────────── */
+.scan-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 4px;
+}
+
+/* ── Cards ────────────────────────────────────────────── */
+.scan-card {
+  margin: 12px 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.scan-card-body {
+  padding: 0;
+}
+
+.scan-card-done {
+  opacity: 0.75;
+}
+
+.scan-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scan-log-subtitle {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ion-color-medium);
+}
+
+.done-title {
+  color: var(--ion-color-medium);
+}
+
+/* ── Pending kid items ────────────────────────────────── */
+.scan-item h2 {
+  font-weight: 600;
+}
+
+.scan-item p {
+  font-size: 13px;
+  color: var(--ion-color-medium);
+}
+
+/* ── Scan log items ───────────────────────────────────── */
+.scan-log-item {
+  --min-height: 56px;
+}
+
+.scan-log-item h2 {
+  font-weight: 600;
+}
+
+.scan-log-item p {
+  font-size: 13px;
+  color: var(--ion-color-medium);
+}
+
+.scan-time {
+  color: var(--ion-color-medium-shade);
+}
+
+.seq-badge {
+  background: var(--ion-color-primary);
+  min-width: 34px;
+  text-align: center;
+  margin-right: 10px;
+  font-size: 12px;
+}
+
+.pillar-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Already-scanned items ────────────────────────────── */
+.scan-item-done {
+  --min-height: 48px;
+  opacity: 0.8;
+}
+
+.scan-item-done h2 {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.scan-item-done p {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+}

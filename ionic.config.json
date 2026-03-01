@@ -1,0 +1,7 @@
+{
+  "name": "kids-pickup-queue",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}

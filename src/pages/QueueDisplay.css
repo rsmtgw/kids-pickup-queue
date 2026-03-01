@@ -1,0 +1,183 @@
+.queue-content {
+  --background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.queue-container {
+  padding: 16px;
+  padding-bottom: 80px;
+}
+
+.stats-card {
+  background: linear-gradient(135deg, var(--queue-gradient-start), var(--queue-gradient-end));
+  color: white;
+  margin-bottom: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 20px;
+  padding: 8px 0;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-item.highlight {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.stat-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.queue-card {
+  position: relative;
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s ease;
+  overflow: visible;
+}
+
+.queue-card.my-child {
+  border: 2px solid var(--ion-color-primary);
+  box-shadow: 0 8px 24px rgba(56, 128, 255, 0.25);
+}
+
+.queue-card.next-up {
+  border: 3px solid var(--ion-color-success);
+  box-shadow: 0 12px 32px rgba(45, 211, 111, 0.35);
+  background: linear-gradient(to right, rgba(45, 211, 111, 0.05), white);
+}
+
+.queue-card.ready {
+  animation: pulse 2s infinite;
+}
+
+.next-badge, .my-badge {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  z-index: 10;
+}
+
+.queue-item {
+  --padding-start: 12px;
+  --inner-padding-end: 12px;
+  --min-height: 90px;
+}
+
+.position-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-secondary));
+  border-radius: 12px;
+  margin-right: 12px;
+  box-shadow: 0 4px 12px rgba(56, 128, 255, 0.3);
+}
+
+.position-number {
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.child-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.child-grade {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin-bottom: 8px;
+}
+
+.queue-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.time-chip, .vehicle-chip {
+  height: 24px;
+  font-size: 12px;
+}
+
+.time-chip {
+  --background: rgba(56, 128, 255, 0.1);
+  --color: var(--ion-color-primary);
+}
+
+.vehicle-chip {
+  --background: rgba(0, 0, 0, 0.05);
+  --color: var(--ion-color-dark);
+}
+
+.queue-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.estimated-wait {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+  font-weight: 500;
+}
+
+.ready-banner {
+  background: linear-gradient(90deg, var(--ion-color-success), #2dd36f);
+  color: white;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.ready-banner ion-icon {
+  font-size: 20px;
+  animation: bounce 1s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .stat-item:last-child {
+    grid-column: 1 / -1;
+  }
+}
