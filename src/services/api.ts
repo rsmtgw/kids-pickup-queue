@@ -1,6 +1,9 @@
 import { Child, Parent, QueueEntry, QueueState, Notification } from '../types';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:8000/api';
+// Use the Vite-provided `VITE_API_URL` when set; otherwise default to a
+// relative path so browser requests go to the dev server origin and benefit
+// from Vite's proxy (important for accessing the API from mobile devices).
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL ?? '/api';
 
 // ── Kids REST API ──────────────────────────────────────────────────────────────
 export interface KidDTO {
