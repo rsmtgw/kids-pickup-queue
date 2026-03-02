@@ -27,6 +27,7 @@
     "@ionic/react-router": "^8.0.0",
     "@types/leaflet": "^1.9.21",
     "framer-motion": "^11.0.0",
+    "html5-qrcode": "^2.3.8",
     "ionicons": "^7.0.0",
     "leaflet": "^1.9.4",
     "react": "^18.2.0",

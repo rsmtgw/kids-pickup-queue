@@ -783,6 +783,20 @@ def delete_kid(kid_id: int):
     if len(_kids) == before:
         raise HTTPException(status_code=404, detail="Kid not found")
 
+@app.get("/api/kids/by-code/{code}")
+def get_kid_by_code(code: str):
+    """Look up a kid by their pickup_code (case-insensitive). Used by parent barcode scan."""
+    match = next((k for k in _kids if k.get("pickup_code", "").upper() == code.upper()), None)
+    if not match:
+        raise HTTPException(status_code=404, detail=f"No kid found with code '{code}'")
+    parent = next((p for p in _parents if p["id"] == match.get("parent_id")), None)
+    scan   = next((s for s in _scans if s["kid_id"] == match["id"]), None)
+    return {
+        "kid":    match,
+        "parent": parent,
+        "scan":   scan,  # null if not yet scanned
+    }
+
 # ── Scan endpoints ────────────────────────────────────────────────────────────
 @app.post("/api/scan", status_code=201)
 def scan_kid(data: ScanIn):

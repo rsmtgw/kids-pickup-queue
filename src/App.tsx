@@ -10,7 +10,7 @@ import {
   setupIonicReact
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { peopleOutline, listOutline, personOutline, settingsOutline, carOutline, schoolOutline, scanOutline, locationOutline, documentTextOutline, homeOutline, analyticsOutline, mapOutline } from 'ionicons/icons';
+import { peopleOutline, listOutline, personOutline, settingsOutline, carOutline, schoolOutline, scanOutline, locationOutline, documentTextOutline, homeOutline, analyticsOutline, mapOutline, qrCodeOutline } from 'ionicons/icons';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -45,6 +45,7 @@ import PickupReport from './pages/PickupReport';
 import ParentPortal from './pages/ParentPortal';
 import ParentAdmin from './pages/ParentAdmin';
 import ParentAddressManager from './pages/ParentAddressManager';
+import ParentScan from './pages/ParentScan';
 import DeveloperTab from './pages/DeveloperTab';
 
 setupIonicReact();
@@ -90,6 +91,9 @@ const App: React.FC = () => {
             </Route>
             <Route exact path="/parent-addresses">
               <ParentAddressManager />
+            </Route>
+            <Route exact path="/parent-scan">
+              <ParentScan />
             </Route>
             <Route exact path="/developer">
               <DeveloperTab />
@@ -142,6 +146,10 @@ const App: React.FC = () => {
             <IonTabButton tab="parent-addresses" href="/parent-addresses">
               <IonIcon aria-hidden="true" icon={mapOutline} />
               <IonLabel>Addresses</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="parent-scan" href="/parent-scan">
+              <IonIcon aria-hidden="true" icon={qrCodeOutline} />
+              <IonLabel>P-Scan</IonLabel>
             </IonTabButton>
             <IonTabButton tab="profile" href="/profile">
               <IonIcon aria-hidden="true" icon={personOutline} />

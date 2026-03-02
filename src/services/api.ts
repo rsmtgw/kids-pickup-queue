@@ -27,11 +27,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const kidsApi = {
-  getAll:  ()                                            => apiFetch<KidDTO[]>('/kids'),
-  getById: (id: number)                                  => apiFetch<KidDTO>(`/kids/${id}`),
-  create:  (kid: Omit<KidDTO, 'id' | 'created_at'>)     => apiFetch<KidDTO>('/kids', { method: 'POST',   body: JSON.stringify(kid) }),
-  update:  (id: number, kid: Partial<KidDTO>)            => apiFetch<KidDTO>(`/kids/${id}`, { method: 'PUT', body: JSON.stringify(kid) }),
-  remove:  (id: number)                                  => apiFetch<void>(`/kids/${id}`, { method: 'DELETE' }),
+  getAll:   ()                                            => apiFetch<KidDTO[]>('/kids'),
+  getById:  (id: number)                                  => apiFetch<KidDTO>(`/kids/${id}`),
+  byCode:   (code: string)                                => apiFetch<{ kid: KidDTO; parent: any; scan: any }>(`/kids/by-code/${encodeURIComponent(code)}`),
+  create:   (kid: Omit<KidDTO, 'id' | 'created_at'>)     => apiFetch<KidDTO>('/kids', { method: 'POST',   body: JSON.stringify(kid) }),
+  update:   (id: number, kid: Partial<KidDTO>)            => apiFetch<KidDTO>(`/kids/${id}`, { method: 'PUT', body: JSON.stringify(kid) }),
+  remove:   (id: number)                                  => apiFetch<void>(`/kids/${id}`, { method: 'DELETE' }),
 };
 
 // ── Scan API ───────────────────────────────────────────────────────────────────
