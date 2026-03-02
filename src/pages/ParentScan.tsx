@@ -16,6 +16,8 @@ import {
   IonItem,
   IonBadge,
   IonChip,
+  useIonViewDidEnter,
+  useIonViewWillLeave,
 } from '@ionic/react';
 import {
   qrCodeOutline,
@@ -27,9 +29,11 @@ import {
   keypadOutline,
   refreshOutline,
   timeOutline,
+  videocamOutline,
+  videocamOffOutline,
 } from 'ionicons/icons';
-import { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeScanType } from 'html5-qrcode';
+import { useRef, useState } from 'react';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { scanApi } from '../services/api';
 import './ParentScan.css';
 
@@ -59,9 +63,10 @@ const ParentScan: React.FC = () => {
   const [toastMsg, setToastMsg]       = useState('');
   const [toastColor, setToastColor]   = useState<'success' | 'danger'>('success');
   const [showToast, setShowToast]     = useState(false);
-  const [useManual, setUseManual]     = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError]   = useState('');
 
-  const scannerRef  = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef  = useRef<Html5Qrcode | null>(null);
   const scannerElId = 'ps-qr-reader';
 
   const flash = (msg: string, color: 'success' | 'danger' = 'success') => {
@@ -70,39 +75,72 @@ const ParentScan: React.FC = () => {
     setShowToast(true);
   };
 
-  // ── Init / destroy camera scanner ────────────────────────────────────────
-  useEffect(() => {
-    if (pageState !== 'scanner' || useManual) return;
+  // ── Start camera when page becomes visible (Ionic lifecycle) ────────────
+  useIonViewDidEnter(() => {
+    if (pageState === 'scanner') startCamera();
+  });
 
-    const scanner = new Html5QrcodeScanner(
-      scannerElId,
-      {
-        fps: 10,
-        qrbox: { width: 260, height: 160 },
-        supportedScanTypes: [
-          Html5QrcodeScanType.SCAN_TYPE_CAMERA,
+  // ── Stop camera when navigating away ────────────────────────────────────
+  useIonViewWillLeave(() => {
+    stopCamera();
+  });
+
+  const startCamera = async () => {
+    setCameraError('');
+    // Small delay lets Ionic fully paint the div before we attach
+    await new Promise(r => setTimeout(r, 200));
+    const el = document.getElementById(scannerElId);
+    if (!el) return;
+
+    try {
+      const qr = new Html5Qrcode(scannerElId, {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
         ],
-        rememberLastUsedCamera: true,
-      },
-      false,
-    );
+      });
+      scannerRef.current = qr;
 
-    scanner.render(
-      (decodedText) => {
-        // decodedText is the raw value encoded in the barcode/QR (= pickup_code)
-        scanner.clear().catch(() => {});
-        handleCodeDetected(decodedText.trim().toUpperCase());
-      },
-      () => { /* ignore per-frame decode errors */ },
-    );
+      await qr.start(
+        { facingMode: 'environment' },   // rear camera
+        {
+          fps: 12,
+          qrbox: { width: 280, height: 160 },
+        },
+        (decodedText) => {
+          stopCamera();
+          handleCodeDetected(decodedText.trim().toUpperCase());
+        },
+        () => { /* per-frame decode failures are normal — ignore */ },
+      );
+      setCameraActive(true);
+    } catch (err: any) {
+      const msg: string = err?.message ?? String(err);
+      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('notallowed')) {
+        setCameraError('Camera permission denied. Please allow camera access in your browser settings, then tap "Start Camera" again.');
+      } else if (msg.toLowerCase().includes('notfound') || msg.toLowerCase().includes('no camera')) {
+        setCameraError('No camera found on this device. Use manual code entry below.');
+      } else {
+        setCameraError(`Camera error: ${msg}`);
+      }
+      setCameraActive(false);
+    }
+  };
 
-    scannerRef.current = scanner;
-    return () => {
-      scanner.clear().catch(() => {});
-      scannerRef.current = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageState, useManual]);
+  const stopCamera = () => {
+    const qr = scannerRef.current;
+    if (!qr) return;
+    scannerRef.current = null;
+    qr.isScanning
+      ? qr.stop().then(() => qr.clear()).catch(() => {})
+      : qr.clear();
+    setCameraActive(false);
+  };
 
   // ── Lookup kid by code ───────────────────────────────────────────────────
   const handleCodeDetected = async (code: string) => {
@@ -160,11 +198,14 @@ const ParentScan: React.FC = () => {
 
   // ── Reset to scanner ─────────────────────────────────────────────────────
   const handleReset = () => {
+    stopCamera();
     setPageState('scanner');
     setLookupResult(null);
     setScanResult(null);
     setManualCode('');
-    setUseManual(false);
+    setCameraError('');
+    // restart camera after short delay so div re-renders first
+    setTimeout(startCamera, 300);
   };
 
   return (
@@ -186,20 +227,49 @@ const ParentScan: React.FC = () => {
         {/* ── SCANNER STATE ─────────────────────────────────────────────── */}
         {pageState === 'scanner' && (
           <div className="ps-scanner-wrapper">
-            <p className="ps-hint">Point the camera at your child's QR / barcode</p>
+            <p className="ps-hint">Point the rear camera at your child's QR code or barcode</p>
 
-            {!useManual ? (
-              <>
-                {/* html5-qrcode mounts here */}
-                <div id={scannerElId} className="ps-qr-reader" />
+            {/* Camera viewport — html5-qrcode renders the video stream here */}
+            <div id={scannerElId} className="ps-qr-reader" />
 
-                <div className="ps-divider">
-                  <span>or enter code manually</span>
-                </div>
-              </>
-            ) : null}
+            {/* Camera controls */}
+            <div className="ps-cam-controls">
+              {!cameraActive ? (
+                <IonButton
+                  expand="block"
+                  color="primary"
+                  className="ps-cam-btn"
+                  onClick={startCamera}
+                  disabled={loading}
+                >
+                  <IonIcon icon={videocamOutline} slot="start" />
+                  Start Camera
+                </IonButton>
+              ) : (
+                <IonButton
+                  expand="block"
+                  fill="outline"
+                  color="medium"
+                  className="ps-cam-btn"
+                  onClick={stopCamera}
+                >
+                  <IonIcon icon={videocamOffOutline} slot="start" />
+                  Stop Camera
+                </IonButton>
+              )}
+            </div>
 
-            {/* Manual entry (always visible below scanner) */}
+            {/* Camera error */}
+            {cameraError && (
+              <div className="ps-cam-error">
+                <IonIcon icon={videocamOffOutline} color="danger" />
+                <p>{cameraError}</p>
+              </div>
+            )}
+
+            <div className="ps-divider"><span>or enter code manually</span></div>
+
+            {/* Manual entry */}
             <div className="ps-manual-row">
               <IonItem lines="full" className="ps-manual-item">
                 <IonIcon icon={keypadOutline} slot="start" color="primary" />

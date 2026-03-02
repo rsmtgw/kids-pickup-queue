@@ -239,6 +239,7 @@ _pillar_assign_seq  = 1   # incremented only when a car reaches the scanner poin
 # formula: PILLAR_COUNT - ((seq-1) % PILLAR_COUNT) → 1→P5, 2→P4, 3→P3, 4→P2, 5→P1, 6→P5, …
 _scan_lock = threading.Lock()   # protects _next_seq, _next_scan_id, _scans mutations
 _pickup_started  = False
+_pickup_started_at: str | None = None   # ISO timestamp when "Start Pickup" was pressed
 PICKUP_QUEUE_SIZE = PILLAR_COUNT   # active-pickup window size (one per pillar)
 
 # ── Pickup lane physical parameters (from .env) ──────────────────────────────
@@ -328,6 +329,9 @@ def _get_google_maps_travel_time(
     """
     api_key = get_config_key("GOOGLE_MAPS_API_KEY")
 
+    # Honour the GOOGLE_MAPS_TRAFFIC_ENABLED flag — skip the API call when false.
+    traffic_enabled = os.getenv("GOOGLE_MAPS_TRAFFIC_ENABLED", "true").strip().lower() not in ("false", "0", "no")
+
     # Check cache first (TTL can be changed at runtime via TRAVEL_TIME_CACHE_TTL env)
     ttl = int(os.getenv("TRAVEL_TIME_CACHE_TTL", str(_travel_time_cache_ttl)))
     ck = _cache_key(origin_lat, origin_lng)
@@ -335,6 +339,25 @@ def _get_google_maps_travel_time(
     if cached and (time.time() - cached.get("_cached_at", 0)) < ttl:
         _logger.debug(f"TRAVEL-TIME  cache hit for {ck}")
         return {k: v for k, v in cached.items() if not k.startswith("_")}
+
+    if not traffic_enabled:
+        # Google Maps traffic disabled via GOOGLE_MAPS_TRAFFIC_ENABLED=false.
+        # Return a haversine estimate with no traffic surcharge.
+        dist_km = _haversine_km(origin_lat, origin_lng, dest_lat, dest_lng)
+        est_min = round(dist_km / 30 * 60, 1)
+        result = {
+            "travel_time_sec": round(est_min * 60),
+            "travel_time_traffic_sec": round(est_min * 60),
+            "travel_time_min": est_min,
+            "travel_time_traffic_min": est_min,
+            "distance_m": round(dist_km * 1000),
+            "distance_km": round(dist_km, 2),
+            "traffic_condition": "disabled",
+            "source": "haversine_disabled",
+        }
+        _travel_time_cache[ck] = {**result, "_cached_at": time.time()}
+        _logger.debug(json.dumps({"type": "travel_time", "source": "haversine_disabled", "lat": round(origin_lat, 4), "lng": round(origin_lng, 4), "travel_time_min": est_min}))
+        return result
 
     if not api_key:
         # Fallback: estimate from haversine distance at ~30 km/h (city driving)
@@ -465,16 +488,17 @@ def _arrival_heartbeat_thread():
                     with _scan_lock:
                         # pillar is 0 here — assigned later when car reaches the scanner point
                         record = {
-                            "id":           _next_scan_id,
-                            "kid_id":       kid_id,
-                            "name":         kid["name"],
-                            "pillar":       0,
-                            "seq":          _next_seq,
-                            "scanned_at":   datetime.datetime.utcnow().isoformat(),
-                            "car_arrived":  False,
-                            "picked_up":    False,
-                            "picked_up_at": None,
-                            "queue_status": "waiting",
+                            "id":               _next_scan_id,
+                            "kid_id":           kid_id,
+                            "name":             kid["name"],
+                            "pillar":           0,
+                            "seq":              _next_seq,
+                            "scanned_at":       datetime.datetime.utcnow().isoformat(),
+                            "pickup_started_at": _pickup_started_at,
+                            "car_arrived":      False,
+                            "picked_up":        False,
+                            "picked_up_at":     None,
+                            "queue_status":     "waiting",
                         }
                         _scans.append(record)
                         _logger.debug(f"HEARTBEAT  AUTO-SCAN seq={_next_seq} kid_id={kid_id} name='{kid['name']}' pillar=unassigned (scheduled {t})")
@@ -806,16 +830,17 @@ def scan_kid(data: ScanIn):
         # Pillar is NOT assigned here — it is assigned dynamically when the car
         # physically reaches the scanner point (POST /api/scan/{kid_id}/assign-pillar).
         record = {
-            "id":           _next_scan_id,
-            "kid_id":       data.kid_id,
-            "name":         data.name,
-            "pillar":       0,
-            "seq":          _next_seq,
-            "scanned_at":   datetime.datetime.utcnow().isoformat(),
-            "car_arrived":  False,
-            "picked_up":    False,
-            "picked_up_at": None,
-            "queue_status": "waiting",   # waiting | pickup | done
+            "id":               _next_scan_id,
+            "kid_id":           data.kid_id,
+            "name":             data.name,
+            "pillar":           0,
+            "seq":              _next_seq,
+            "scanned_at":       datetime.datetime.utcnow().isoformat(),
+            "pickup_started_at": _pickup_started_at,  # None if pickup not yet started
+            "car_arrived":      False,
+            "picked_up":        False,
+            "picked_up_at":     None,
+            "queue_status":     "waiting",   # waiting | pickup | done
         }
         _scans.append(record)
         _logger.debug(f"SCAN  seq={_next_seq} kid_id={data.kid_id} name='{data.name}' pillar=unassigned status=waiting")
@@ -909,9 +934,15 @@ def confirm_pickup(kid_id: int):
 def start_pickup():
     """Start pickup: promote scans from waiting → pickup up to PILLAR_COUNT total.
     Safe to call even if start_parent has already promoted some items."""
-    global _pickup_started
+    global _pickup_started, _pickup_started_at
     with _scan_lock:
         _pickup_started = True
+        if _pickup_started_at is None:
+            _pickup_started_at = datetime.datetime.utcnow().isoformat()
+        # Stamp every waiting record with the pickup start time
+        for s in _scans:
+            if s.get("pickup_started_at") is None:
+                s["pickup_started_at"] = _pickup_started_at
         # Only fill the remaining slots — _advance_queue also caps internally, but
         # we compute slots_to_fill here so the log reflects what was *newly* promoted.
         before_pickup_ids = {s["id"] for s in _scans if s["queue_status"] == "pickup"}
@@ -922,7 +953,7 @@ def start_pickup():
         _logger.debug(f"PICKUP-STARTED  newly_promoted={len(newly_promoted)} total_in_pickup={len(after_pickup)} records: {', '.join(names) or 'none'}")
         total_waiting = len([s for s in _scans if s["queue_status"] == "waiting"])
         _logger.debug(f"PICKUP-STARTED  still waiting={total_waiting}  total_scans={len(_scans)}")
-        return {
+    return {
             "started": True,
             "pickup": after_pickup,
         }
@@ -941,7 +972,8 @@ def get_pickup_queue():
 def queue_status_endpoint():
     """Summary counts for dashboard display."""
     return {
-        "started": _pickup_started,
+        "started":            _pickup_started,
+        "pickup_started_at":  _pickup_started_at,
         "waiting": len([s for s in _scans if s["queue_status"] == "waiting"]),
         "pickup":  len([s for s in _scans if s["queue_status"] == "pickup"]),
         "done":    len([s for s in _scans if s["queue_status"] == "done"]),
@@ -955,13 +987,14 @@ def list_scans_by_pillar(pillar_num: int):
 @app.delete("/api/scan", status_code=204)
 def reset_scans():
     """Clear all scan records, reset counters, and cancel pending autonomous arrivals."""
-    global _scans, _next_scan_id, _next_seq, _pillar_assign_seq, _pickup_started
+    global _scans, _next_scan_id, _next_seq, _pillar_assign_seq, _pickup_started, _pickup_started_at
     _logger.debug(f"RESET  clearing {len(_scans)} scan records")
     _scans              = []
     _next_scan_id       = 1
     _next_seq           = 1
     _pillar_assign_seq  = 1
     _pickup_started     = False
+    _pickup_started_at  = None
     # Also clear any pending autonomous arrivals so a fresh schedule can be applied
     with _arrivals_lock:
         count = sum(len(v) for v in _SCHEDULED_ARRIVALS.values())
@@ -1427,7 +1460,7 @@ def start_parent(parent_id: int, auto_start_pickup: bool = True):
     """Instantly scan a parent's kid into the queue — skips driving time for testing.
     If auto_start_pickup is True and pickup hasn't started yet, it also starts the pickup queue.
     Pass auto_start_pickup=false when using timed Start All to control pickup start separately."""
-    global _pickup_started
+    global _pickup_started, _pickup_started_at
     parent = next((p for p in _parents if p["id"] == parent_id), None)
     if not parent:
         raise HTTPException(status_code=404, detail="Parent not found")
@@ -1447,16 +1480,17 @@ def start_parent(parent_id: int, auto_start_pickup: bool = True):
     with _scan_lock:
         pillar = PILLAR_COUNT - ((_next_seq - 1) % PILLAR_COUNT)
         record = {
-            "id":           _next_scan_id,
-            "kid_id":       kid_id,
-            "name":         kid["name"],
-            "pillar":       pillar,
-            "seq":          _next_seq,
-            "scanned_at":   datetime.datetime.utcnow().isoformat(),
-            "car_arrived":  False,
-            "picked_up":    False,
-            "picked_up_at": None,
-            "queue_status": "waiting",
+            "id":               _next_scan_id,
+            "kid_id":           kid_id,
+            "name":             kid["name"],
+            "pillar":           pillar,
+            "seq":              _next_seq,
+            "scanned_at":       datetime.datetime.utcnow().isoformat(),
+            "pickup_started_at": _pickup_started_at,
+            "car_arrived":      False,
+            "picked_up":        False,
+            "picked_up_at":     None,
+            "queue_status":     "waiting",
         }
         _scans.append(record)
         _logger.debug(f"ADMIN-START  parent={parent['name']} kid={kid['name']} seq={_next_seq} pillar={pillar}")
@@ -1467,6 +1501,11 @@ def start_parent(parent_id: int, auto_start_pickup: bool = True):
             # Auto-start pickup if not started yet
             if not _pickup_started:
                 _pickup_started = True
+                if _pickup_started_at is None:
+                    _pickup_started_at = datetime.datetime.utcnow().isoformat()
+                for s in _scans:
+                    if s.get("pickup_started_at") is None:
+                        s["pickup_started_at"] = _pickup_started_at
                 _advance_queue(PICKUP_QUEUE_SIZE)
                 _logger.debug("ADMIN-START  auto-started pickup queue")
             else:
@@ -1507,16 +1546,17 @@ def start_all_parents():
             global _next_scan_id, _next_seq
             pillar = PILLAR_COUNT - ((_next_seq - 1) % PILLAR_COUNT)
             record = {
-                "id":           _next_scan_id,
-                "kid_id":       kid_id,
-                "name":         kid["name"],
-                "pillar":       pillar,
-                "seq":          _next_seq,
-                "scanned_at":   datetime.datetime.utcnow().isoformat(),
-                "car_arrived":  False,
-                "picked_up":    False,
-                "picked_up_at": None,
-                "queue_status": "waiting",
+                "id":               _next_scan_id,
+                "kid_id":           kid_id,
+                "name":             kid["name"],
+                "pillar":           pillar,
+                "seq":              _next_seq,
+                "scanned_at":       datetime.datetime.utcnow().isoformat(),
+                "pickup_started_at": _pickup_started_at,
+                "car_arrived":      False,
+                "picked_up":        False,
+                "picked_up_at":     None,
+                "queue_status":     "waiting",
             }
             _scans.append(record)
             _next_scan_id += 1
@@ -1527,6 +1567,11 @@ def start_all_parents():
     with _scan_lock:
         if not _pickup_started:
             _pickup_started = True
+            if _pickup_started_at is None:
+                _pickup_started_at = datetime.datetime.utcnow().isoformat()
+            for s in _scans:
+                if s.get("pickup_started_at") is None:
+                    s["pickup_started_at"] = _pickup_started_at
         # _advance_queue caps at PILLAR_COUNT internally
         _advance_queue(PICKUP_QUEUE_SIZE)
     _logger.debug(f"ADMIN-START-ALL  scanned {len([r for r in results if r['status'] == 'scanned'])} kids")

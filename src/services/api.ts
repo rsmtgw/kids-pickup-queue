@@ -34,23 +34,25 @@ export const kidsApi = {
 
 // ── Scan API ───────────────────────────────────────────────────────────────────
 export interface ScanRecord {
-  id:           number;
-  kid_id:       number;
-  name:         string;
-  pillar:       number;
-  seq:          number;       // server-assigned arrival sequence number
-  scanned_at:   string;
-  car_arrived:  boolean;      // true when visualization car reached the pillar
-  picked_up:    boolean;      // true when pillar manager confirmed kid boarded
-  picked_up_at: string | null;
-  queue_status: 'waiting' | 'pickup' | 'done';
+  id:                number;
+  kid_id:            number;
+  name:              string;
+  pillar:            number;
+  seq:               number;       // server-assigned arrival sequence number
+  scanned_at:        string;
+  pickup_started_at: string | null; // set when "Start Pickup" is pressed
+  car_arrived:       boolean;      // true when visualization car reached the pillar
+  picked_up:         boolean;      // true when pillar manager confirmed kid boarded
+  picked_up_at:      string | null;
+  queue_status:      'waiting' | 'pickup' | 'done';
 }
 
 export interface QueueStatus {
-  started: boolean;
-  waiting: number;
-  pickup:  number;
-  done:    number;
+  started:            boolean;
+  pickup_started_at?: string | null;
+  waiting:            number;
+  pickup:             number;
+  done:               number;
 }
 
 export interface ScanIn {

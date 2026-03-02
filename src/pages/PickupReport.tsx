@@ -100,23 +100,23 @@ const PickupReport: React.FC = () => {
   const lqAtPillar = records.filter(r => !r.picked_up &&  r.car_arrived).sort((a, b) => a.pillar - b.pillar);
   const avgMs = (() => {
     const durations = records
-      .filter(r => r.picked_up && r.scanned_at && r.picked_up_at)
-      .map(r => new Date(r.picked_up_at!).getTime() - new Date(r.scanned_at).getTime())
+      .filter(r => r.picked_up && r.pickup_started_at && r.picked_up_at)
+      .map(r => new Date(r.picked_up_at!).getTime() - new Date(r.pickup_started_at!).getTime())
       .filter(d => d > 0);
     if (durations.length === 0) return null;
     return durations.reduce((s, d) => s + d, 0) / durations.length;
   })();
 
   const exportCsv = () => {
-    const header = 'Seq,Name,Pillar,Scanned At,Car Arrived,Picked Up,Picked Up At,Total Time\n';
+    const header = 'Seq,Name,Pillar,Start Time,Car Arrived,Picked Up,Picked Up At,Total Time\n';
     const rows = sorted.map(r =>
       [
         r.seq, `"${r.name}"`, `P${r.pillar}`,
-        fmt(r.scanned_at),
+        fmt(r.pickup_started_at ?? r.scanned_at),
         r.car_arrived ? 'Yes' : 'No',
         r.picked_up   ? 'Yes' : 'No',
         fmt(r.picked_up_at),
-        duration(r.scanned_at, r.picked_up_at),
+        duration(r.pickup_started_at ?? r.scanned_at, r.picked_up_at),
       ].join(',')
     ).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv' });
@@ -272,7 +272,7 @@ const PickupReport: React.FC = () => {
                   <th onClick={() => setSort('seq')}    className="sortable">#Seq <SortArrow k="seq" /></th>
                   <th onClick={() => setSort('name')}   className="sortable">Name <SortArrow k="name" /></th>
                   <th onClick={() => setSort('pillar')} className="sortable">Pillar <SortArrow k="pillar" /></th>
-                  <th>Scanned</th>
+                  <th>Start Time</th>
                   <th>Car Arrived</th>
                   <th onClick={() => setSort('picked_up_at')} className="sortable">Picked Up <SortArrow k="picked_up_at" /></th>
                   <th>Total Time</th>
@@ -289,10 +289,10 @@ const PickupReport: React.FC = () => {
                       <td className="td-pillar">
                         <span className="pillar-badge">P{r.pillar}</span>
                       </td>
-                      <td className="td-time">{fmt(r.scanned_at)}</td>
+                      <td className="td-time">{fmt(r.pickup_started_at ?? r.scanned_at)}</td>
                       <td className="td-time">{r.car_arrived ? <span style={{ color: '#ffc03c' }}>✓ Yes</span> : '—'}</td>
                       <td className="td-time">{fmt(r.picked_up_at)}</td>
-                      <td className="td-dur">{duration(r.scanned_at, r.picked_up_at)}</td>
+                      <td className="td-dur">{duration(r.pickup_started_at ?? r.scanned_at, r.picked_up_at)}</td>
                       <td>
                         <IonChip color={meta.color} outline={!r.picked_up} className="status-chip">
                           <IonIcon icon={meta.icon} />

@@ -61,6 +61,44 @@
   font-size: 0.85rem !important;
 }
 
+/* ── Camera controls (Html5Qrcode mode) ──────────────────────────────── */
+.ps-cam-controls {
+  width: 100%;
+  max-width: 380px;
+}
+.ps-cam-btn {
+  --border-radius: 12px;
+  height: 48px;
+}
+
+/* Highlight the viewport border when camera is active */
+.ps-qr-reader:not(:empty) {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 0 0 3px var(--ion-color-success);
+}
+
+/* Camera error message */
+.ps-cam-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fff3f3;
+  border-radius: 10px;
+  padding: 12px;
+  width: 100%;
+  max-width: 380px;
+  font-size: 0.88rem;
+  color: var(--ion-color-danger);
+}
+.ps-cam-error p {
+  margin: 0;
+  line-height: 1.4;
+}
+.ps-cam-error ion-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 /* ── Divider ──────────────────────────────────────────────────────────── */
 .ps-divider {
   display: flex;
