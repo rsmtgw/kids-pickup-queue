@@ -1,0 +1,265 @@
+/* ── Layout ────────────────────────────────────────────────────────────── */
+.ps-content {
+  --background: #f4f6fb;
+}
+
+.ps-header-icon {
+  font-size: 1.3rem;
+  margin-left: 12px;
+  margin-right: 4px;
+}
+
+/* ── Scanner state ────────────────────────────────────────────────────── */
+.ps-scanner-wrapper {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ps-hint {
+  color: var(--ion-color-medium);
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 4px 0 8px;
+}
+
+.ps-qr-reader {
+  width: 100%;
+  max-width: 380px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* Override html5-qrcode default styles */
+#ps-qr-reader {
+  border: none !important;
+}
+#ps-qr-reader > video {
+  border-radius: 16px;
+  width: 100% !important;
+}
+#ps-qr-reader__scan_region {
+  background: transparent !important;
+}
+#ps-qr-reader__scan_region img {
+  display: none !important;  /* hide the default corner-brackets image */
+}
+#ps-qr-reader__dashboard {
+  padding: 8px 4px !important;
+  background: #fff;
+  border-radius: 0 0 16px 16px;
+}
+#ps-qr-reader__dashboard_section_csr button {
+  background: var(--ion-color-primary) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-size: 0.85rem !important;
+}
+
+/* ── Divider ──────────────────────────────────────────────────────────── */
+.ps-divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 380px;
+  gap: 10px;
+  color: var(--ion-color-medium);
+  font-size: 0.82rem;
+  margin: 8px 0;
+}
+.ps-divider::before,
+.ps-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--ion-color-light-shade);
+}
+
+/* ── Manual entry ────────────────────────────────────────────────────── */
+.ps-manual-row {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ps-manual-item {
+  border-radius: 12px;
+  --background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.ps-manual-btn {
+  --border-radius: 12px;
+  height: 48px;
+}
+
+/* ── Confirming / Already state ──────────────────────────────────────── */
+.ps-card-wrapper {
+  padding: 20px 16px;
+}
+
+.ps-kid-card {
+  border-radius: 20px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.10);
+  overflow: visible;
+}
+.ps-kid-card.already {
+  border: 2px solid var(--ion-color-success);
+}
+
+.ps-kid-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--ion-color-primary);
+  color: white;
+  font-size: 2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -36px auto 12px;
+  box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.4);
+}
+
+.ps-kid-name {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.ps-kid-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ion-color-light);
+  margin-bottom: 16px;
+}
+.ps-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: var(--ion-color-dark);
+}
+.ps-detail-row ion-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.ps-code-badge {
+  font-family: monospace;
+  font-size: 1rem;
+  letter-spacing: 2px;
+  color: var(--ion-color-dark) !important;
+  background: var(--ion-color-light) !important;
+  border: 1px solid var(--ion-color-light-shade);
+  border-radius: 6px;
+  padding: 2px 10px;
+}
+
+.ps-already-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f0fdf4;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 0.9rem;
+  color: var(--ion-color-dark);
+  margin-bottom: 12px;
+}
+.ps-already-msg ion-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.ps-status-chip {
+  height: 22px;
+  font-size: 0.75rem;
+}
+
+.ps-confirm-hint {
+  text-align: center;
+  color: var(--ion-color-medium);
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+
+.ps-action-row {
+  display: flex;
+  gap: 10px;
+}
+.ps-cancel-btn { flex: 1; --border-radius: 12px; }
+.ps-checkin-btn { flex: 2; --border-radius: 12px; }
+
+/* ── Success state ───────────────────────────────────────────────────── */
+.ps-success-wrapper {
+  padding: 32px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.ps-success-icon ion-icon {
+  font-size: 80px;
+  filter: drop-shadow(0 4px 12px rgba(var(--ion-color-success-rgb), 0.4));
+}
+.ps-success-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 12px 0 4px;
+  color: var(--ion-color-dark);
+}
+.ps-success-name {
+  font-size: 1.2rem;
+  color: var(--ion-color-medium);
+  margin: 0 0 20px;
+}
+.ps-success-card {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+.ps-success-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ion-color-light);
+}
+.ps-success-stat:last-child { border-bottom: none; }
+.ps-success-stat ion-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+.ps-stat-label {
+  font-size: 0.78rem;
+  color: var(--ion-color-medium);
+  margin: 0;
+}
+.ps-stat-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ion-color-dark);
+  margin: 0;
+}
+.ps-success-hint {
+  font-size: 0.88rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 20px;
+  max-width: 300px;
+}
+.ps-scan-another {
+  --border-radius: 12px;
+  max-width: 280px;
+  width: 100%;
+}
