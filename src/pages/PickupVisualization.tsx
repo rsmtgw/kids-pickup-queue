@@ -8,19 +8,35 @@ import './PickupVisualization.css';
 
 // â”€â”€â”€ Scene Layout (px) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Scene Layout (px)
-const SCENE_W        = 1100;
-const SCENE_H        = 600;
-const ROAD_Y         = 75;    // main road center
-const LANE_R_Y       = 490;   // right lane center (through traffic)
-const LANE_L_Y       = 448;   // left lane center (pickup lane)
-const PICKUP_Y       = 410;   // y where cars nudge up to collect kid
+const SCENE_W        = 3450;  // school(772) + empty(2316=3×school) + Calz.road(170) + left margin(192)
+const SCENE_H        = 900;   // 400px north Calzada above main road + 500px campus/lanes below
+const ROAD_Y         = 400;   // main road center — 400px from top gives full visible N/S Calzada strip
+const LANE_R_Y       = 815;   // right lane center  (was 490, +325)
+const LANE_L_Y       = 773;   // left lane center   (was 448, +325)
+const PICKUP_Y       = 735;   // y where cars nudge up to collect kid (was 410, +325)
 const TURN_X         = 170;   // x where cars leave main road downward
-const SCAN_X         = 740;   // scanner position
-const ENTRY_X        = SCENE_W + 50;
 const PILLAR_COUNT   = 5;
 const PILLAR_X_START = 310;
 const PILLAR_GAP     = 150;
 const CAR_SPEED      = 90;
+// X where Calzada Las Mitras (N/S entry road) meets the main queueing road.
+// Map proportion: empty ground = 3 × school width.
+// School width = SCHOOL_RIGHT_X - SCHOOL_LEFT_X = 964 - 192 = 772px.
+// Empty ground = 3 × 772 = 2316px  →  CALZ_X = 964 + 2316 = 3280.
+// Calz. Las Mitras road width = 170px  →  SCENE_W = 3280 + 170 = 3450.
+const CALZ_X         = 3280;
+// Scan station sits just inside the main road entry — cars stop here right after turning.
+const SCAN_X         = CALZ_X - 60;   // = 3220  (60px left of junction)
+// School spans the FULL campus — left ramp edge to just past P5 cage.
+// pillarX(5) = 310 + 4*150 = 910, cage right edge = 910 + 44 = 954 → add 10px padding.
+const SCHOOL_LEFT_X  = TURN_X + 22;   // = 192
+const SCHOOL_RIGHT_X = 964;            // covers all 5 pillars
+// Empty ground: 964 → 3280 = 2316px (3× school)
+// Scale bar: school width 772px ≈ 260ft real → 200ft ≈ 300px on screen (nearest round)
+const SCALE_BAR_PX   = 300;
+// Spawn Y on Calzada: cars appear at the very top edge of the scene and drive south.
+// Must be >= 0 so the inner scene (overflow:hidden) doesn't clip the car before it enters.
+const CALZ_ENTRY_Y   = 10;    // 10px from scene top — fully visible, not clipped
 const CAGE_TOP       = ROAD_Y + 22;          // top of holding cage
 const CAGE_H         = 145;                  // cage height
 const CAGE_BOTTOM    = CAGE_TOP + CAGE_H;    // = 242
@@ -40,6 +56,7 @@ const CRUISE_Y = PICKUP_LANES === 1 ? LANE_L_Y : LANE_R_Y;
 
 type Phase =
   | 'waiting'          // parked on main road until "Start Pickup" is pressed
+  | 'on-calz'          // travelling south on Calzada Las Mitras toward the main road junction
   | 'to-turn'
   | 'descending' | 'cruising' | 'lane-change'
   | 'collecting'       // car nudging to PICKUP_Y — kid boards
@@ -161,7 +178,9 @@ const PickupVisualization: React.FC = () => {
   const [showLogs, setShowLogs]   = useState(false);
   const [activeLogTab, setActiveLogTab] = useState<'ui' | 'backend'>('ui');
   const [backendLogs, setBackendLogs]   = useState<Array<{ ts: string; level: string; msg: string }>>([]);
-  const logEndRef     = useRef<HTMLDivElement>(null);
+  const logEndRef         = useRef<HTMLDivElement>(null);
+  // Scroll wrapper ref — used to auto-pan to the Calzada entry so users see cars arrive
+  const sceneScrollRef    = useRef<HTMLDivElement>(null);
   const heldDescendIds      = useRef(new Set<number>()); // dedupe gate-hold-descend warnings
   const heldEntryIds         = useRef(new Set<number>()); // dedupe gate-hold-entry warnings
   const pillarRequestedRef   = useRef(new Set<number>()); // kidIds for which assignPillar was called
@@ -187,6 +206,9 @@ const PickupVisualization: React.FC = () => {
   const pickupQueueIdsRef   = useRef<Set<number>>(new Set());
   // Kept for UI badge only — movement gating now uses pickupQueueIdsRef
   const isPickupStartedRef  = useRef(false);
+  // Set to true between a reset() call and the moment the backend confirms it cleared.
+  // The scan poll skips spawning while this is true to prevent re-spawn of stale records.
+  const isResettingRef        = useRef(false);
   // Initialise (or re-initialise) when DB kids are ready
   useEffect(() => {
     if (dbLoading || initialVizKids.length === 0) return;
@@ -214,10 +236,12 @@ const PickupVisualization: React.FC = () => {
   };
 
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    // Block the scan poll from re-spawning stale records while the backend clears.
+    isResettingRef.current = true;
+
     nextId.current = 1;
     carsRef.current = [];
-    seenScanIds.current.clear();
     carArrivedNotified.current.clear();
     carAwaitStartRef.current.clear();
     // Cancel all pending auto-confirm timers
@@ -233,7 +257,6 @@ const PickupVisualization: React.FC = () => {
     logsRef.current = [];
     setLogLines([]);
     setBackendLogs([]);
-    scanApi.reset().catch(() => {});
     window.dispatchEvent(new CustomEvent('pickup-reset'));
     const source = dbKids.length > 0 ? dbKids : FALLBACK_KIDS.map((name, i) => ({ id: i + 1, name }));
     const freshKids = buildVizKids(source);
@@ -243,6 +266,19 @@ const PickupVisualization: React.FC = () => {
     setIsDone(false);
     setIsPickupStarted(false);
     setIsPlaying(true);
+
+    // Wait for the backend to confirm the scan table is cleared before unblocking
+    // the poll.  If the request fails (offline), clear anyway after a short delay.
+    try {
+      await scanApi.reset();
+    } catch {
+      // backend offline — continue anyway
+    }
+    // NOW safe to clear seenScanIds: the backend has no records left, so the
+    // next poll will return an empty list and won't re-spawn old cars.
+    seenScanIds.current.clear();
+    scanTimesRef.current.clear();
+    isResettingRef.current = false;
   };
 
   const [seedingDebug, setSeedingDebug] = useState(false);
@@ -250,9 +286,8 @@ const PickupVisualization: React.FC = () => {
   /** Seed 6 test scan records to reproduce queue hang with minimal data */
   const handleSeedDebugScans = async () => {
     setSeedingDebug(true);
-    // 1) Reset everything first
-    handleReset();
-    await new Promise(r => setTimeout(r, 300));
+    // 1) Reset everything first (awaited — ensures backend is clear before we seed)
+    await handleReset();
 
     // 2) Pick 6 kids from the current visualization list so kid_id references are valid
     const pool = kidsRef.current.length >= 6
@@ -307,6 +342,8 @@ const PickupVisualization: React.FC = () => {
     } catch { /* server offline — local seed above is sufficient */ }
     isPickupStartedRef.current = true;
     setIsPickupStarted(true);
+    // Pan viewport to show Calzada entry so the user sees cars arriving from the main road
+    sceneScrollRef.current?.scrollTo({ left: CALZ_X - 320, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -319,6 +356,9 @@ const PickupVisualization: React.FC = () => {
         pollTick.current = 0;
         scanApi.getAll()
           .then(records => {
+            // While reset is in progress, the backend table may not be cleared yet.
+            // Ignore all records until the reset resolves and seenScanIds is re-armed.
+            if (isResettingRef.current) return;
             records.forEach(rec => {
               if (seenScanIds.current.has(rec.kid_id)) return;
               seenScanIds.current.add(rec.kid_id);
@@ -358,19 +398,24 @@ const PickupVisualization: React.FC = () => {
                 }];
               });
 
-              // Spawn car without pillar (gray) — pillar assigned at scanner point
+              // Spawn car on Calzada Las Mitras — drives south, turns right onto main road.
+              // Auto-scroll to show the Calzada entry on the first car spawn so the user
+              // can see the car arriving from the main road and passing the scan station.
+              if (carsRef.current.length === 0) {
+                sceneScrollRef.current?.scrollTo({ left: CALZ_X - 320, behavior: 'smooth' });
+              }
               const id = nextId.current++;
               const newCar: Car = {
                 id,
                 seq:     rec.seq,
                 kidId:   rec.kid_id,
                 kidName: rec.name,
-                x: ENTRY_X, y: ROAD_Y, rot: 180,
+                x: CALZ_X, y: CALZ_ENTRY_Y, rot: 90,  // facing south (rot=90)
                 color:  '#94a3b8',   // neutral gray until pillar assigned at scanner
-                phase:  'to-turn',
+                phase:  'on-calz',
                 wait:   0,
                 pillar: 0,           // 0 = unassigned
-                laneSlot: 0,         // assigned at scan station based on seq + PICKUP_LANES
+                laneSlot: 0,
               };
               // If pickup is already running, immediately authorize this car so it
               // doesn't park at TURN_X and wait forever for a release that never comes.
@@ -565,81 +610,60 @@ const PickupVisualization: React.FC = () => {
       // ── Pre-compute lane constraints OUTSIDE setCars (StrictMode safe) ──
       const MIN_GAP = 70; // px — slightly wider than a car
 
-      // 2. Per-pillar blocking: set of pillar numbers already occupied
-      //    (a car is "occupying" a pillar once it starts lane-change/collecting/awaiting-confirm)
-      const occupiedPillarSlots = new Set<string>(
-        carsRef.current
-          .filter(c => c.phase === 'lane-change' || c.phase === 'collecting' || c.phase === 'awaiting-confirm')
-          .map(c => `${c.pillar}-${c.laneSlot}`)
-      );
+      // ══════════════════════════════════════════════════════════════════════
+      //  UNIFIED L-SHAPED QUEUE
+      //
+      //  One sorted "main queue" covers the entire L-shaped approach road:
+      //    Calzada Las Mitras (↓ south, increasing Y)
+      //    + Main Road        (← west,  decreasing X)
+      //
+      //  distToRamp(car) = remaining distance until car reaches TURN_X:
+      //    on-calz:           (ROAD_Y − y)  +  (CALZ_X − TURN_X)
+      //    to-turn / waiting: (x − TURN_X)
+      //
+      //  mainQueue sorts ascending → index 0 = leader (closest to ramp).
+      //  mainQueueMinDistMap[id] = aheadDist + MIN_GAP = minimum distance
+      //  this car must keep from the ramp.  Converted back to maxY / minX
+      //  inside the FSM cases below.
+      // ══════════════════════════════════════════════════════════════════════
+      const CALZ_ROAD_LEN = CALZ_X - TURN_X; // 3110 px — full west-leg length
 
-      // 3. Lane following-distance: cap each cruising car behind any obstacle ahead.
-      // Obstacles = cruising cars + lane-change cars (still at pillarX in the lane).
-      // NOTE: descending cars are deliberately excluded — they are on the ramp (different y)
-      // and must NOT appear as obstacles at x=TURN_X or they permanently freeze the first
-      // cruising car through the maxXMap cap, deadlocking the entire lane.
-      // The entryPointClear check in gate-4 already prevents entry collisions.
-      const laneBlockingRaw = carsRef.current
-        .filter(c => c.phase === 'cruising' || c.phase === 'lane-change')
-        .map(c => ({ id: c.id, x: c.x, isCruising: c.phase === 'cruising' }))
-        .sort((a, b) => a.x - b.x);
-      const maxXMap = new Map<number, number>(); // carId → max allowed x
-      for (let i = 0; i < laneBlockingRaw.length; i++) {
-        if (!laneBlockingRaw[i].isCruising) continue; // only cap cruising cars
-        const ahead = laneBlockingRaw[i + 1];
-        if (ahead) maxXMap.set(laneBlockingRaw[i].id, ahead.x - MIN_GAP);
+      const distToRamp = (c: Car): number =>
+        c.phase === 'on-calz'
+          ? (ROAD_Y - c.y) + CALZ_ROAD_LEN
+          : Math.max(0, c.x - TURN_X);
+
+      const mainQueue = carsRef.current
+        .filter(c => c.phase === 'on-calz' || c.phase === 'to-turn' || c.phase === 'waiting')
+        .sort((a, b) => distToRamp(a) - distToRamp(b)); // index 0 = closest to ramp
+
+      // Per-car minimum-distance constraint (= leader's dist + MIN_GAP).
+      const mainQueueMinDistMap = new Map<number, number>(); // carId → min distToRamp
+      for (let i = 1; i < mainQueue.length; i++) {
+        mainQueueMinDistMap.set(mainQueue[i].id, distToRamp(mainQueue[i - 1]) + MIN_GAP);
       }
 
-      // 3b. Main-road following-distance: to-turn cars travel LEFT (decreasing x),
-      //     so each car must stay >= MIN_GAP to the RIGHT of the car directly ahead.
-      //     Include 'waiting' (parked) cars so approaching to-turn cars stop behind them.
-      //     EXCLUDE waiting cars that are in the pickup queue — they are about to start
-      //     driving this tick and should not chain-constrain each other.  Without this
-      //     exclusion, cars parked 80px apart (just over MIN_GAP=70) can only move ~10px
-      //     per tick instead of the full CAR_SPEED=90px, causing long main-road delays.
-      const roadOccupants = carsRef.current
-        .filter(c =>
-          c.phase === 'to-turn' ||
-          (c.phase === 'waiting' && !pickupQueueIdsRef.current.has(c.kidId))
-        )
-        .sort((a, b) => a.x - b.x); // leftmost = most advanced
-      const minXMap = new Map<number, number>(); // carId → min allowed x (to-turn only)
-      for (let i = 1; i < roadOccupants.length; i++) {
-        if (roadOccupants[i].phase === 'to-turn') {
-          minXMap.set(roadOccupants[i].id, roadOccupants[i - 1].x + MIN_GAP);
-        }
-      }
-
-      // 3c. Continuous flow — no artificial slot limits.
-      //
-      //  Physical constraints handle all collision prevention:
-      //    - Ramp: vertical MIN_GAP spacing (maxYMap) prevents overlap
-      //    - Lane entry: entryPointClear ensures only one car enters cruising per tick
-      //    - Cruising: following-distance (maxXMap) prevents rear-end collisions
-      //    - Pillar: occupiedPillars prevents two cars at the same pillar
-      //    - Left lane: per-pillar proximity check prevents lane-change into traffic
-      //
-      //  The ramp-turn gate now only checks physical space on the ramp itself:
-      //  admit a car if there's room at the ramp top (ROAD_Y), i.e. the lowest
-      //  descending car is far enough down to leave a gap.
-      //
-      const rampCars = carsRef.current
+      // ── Ramp queue: descending cars (↓ increasing Y) ──────────────────────
+      const rampQueue = carsRef.current
         .filter(c => c.phase === 'descending')
-        .sort((a, b) => a.y - b.y); // lowest y = most recently entered
-      const rampTopClear = rampCars.length === 0 || rampCars[0].y > ROAD_Y + MIN_GAP;
+        .sort((a, b) => b.y - a.y); // highest y = most advanced (closest to CRUISE_Y)
+      const maxYMap = new Map<number, number>(); // carId → max allowed y on ramp
+      for (let i = 1; i < rampQueue.length; i++) {
+        maxYMap.set(rampQueue[i].id, rampQueue[i - 1].y - MIN_GAP);
+      }
+      const rampTopClear =
+        rampQueue.length === 0 || rampQueue[rampQueue.length - 1].y > ROAD_Y + MIN_GAP;
 
-      // 3d. Ramp-entry gate: pre-computed here so it can also gate main-road → ramp
-      //     descent below.  Block if any cruising car hasn't yet cleared TURN_X entry zone.
-      //     Only allow one descending car to start cruising per tick.
-      const readyToEnter = carsRef.current
-        .filter(c => c.phase === 'descending' && c.y + CAR_SPEED >= CRUISE_Y)
-        .sort((a, b) => a.seq - b.seq); // lowest seq = entered first
+      // ── Ramp-bottom entry gate ─────────────────────────────────────────────
+      // Only gates descending → cruising; does NOT block ramp-top admission.
       const entryPointClear = !carsRef.current.some(
         c => c.phase === 'cruising' && c.x < TURN_X + MIN_GAP
       );
-      const firstEntryId = (entryPointClear && readyToEnter.length > 0)
+      const readyToEnter = rampQueue
+        .filter(c => c.y + CAR_SPEED >= CRUISE_Y)
+        .sort((a, b) => a.seq - b.seq);
+      const firstEntryId = entryPointClear && readyToEnter.length > 0
         ? readyToEnter[0].id : null;
-      // Deduplicated GATE-HOLD-ENTRY warning — logs once per ramp car, not every tick.
       if (entryPointClear) heldEntryIds.current.clear();
       if (readyToEnter.length > 0 && firstEntryId === null) {
         readyToEnter.forEach(c => {
@@ -650,59 +674,83 @@ const PickupVisualization: React.FC = () => {
         });
       }
 
-      // 3e. Ramp-turn gate: admit ONE car per tick onto the ramp — but only when the
-      //     lane entry point is also clear.  Gating on entryPointClear here prevents cars
-      //     from piling up at the ramp bottom when the cruising lane is fully backed up;
-      //     instead they wait at TURN_X in 'to-turn' phase on the main road.
-      const readyToDescend = carsRef.current
-        .filter(c =>
-          c.phase === 'to-turn' &&
-          pickupQueueIdsRef.current.has(c.kidId) &&
-          c.pillar !== 0 &&          // must have a pillar assigned at the scanner
-          c.x - CAR_SPEED <= TURN_X
-        )
-        .sort((a, b) => a.seq - b.seq);
-      const admittedDescendIds = new Set<number>(
-        rampTopClear && entryPointClear && readyToDescend.length > 0
-          ? [readyToDescend[0].id]
-          : []
+      // ── Ramp-admission gate: admit ONE to-turn car per tick onto the ramp ──
+      // Only needs rampTopClear — entryPointClear is decoupled (gates ramp bottom only).
+      // Include 'waiting' phase: a waiting car that just entered the pickup queue sits
+      // near TURN_X (dist≈0) and should be admitted before a 'to-turn' car that's
+      // further back — this preserves batch dispatch order (P5→P4→P3→P2→P1).
+      const readyToDescend = mainQueue.filter(c =>
+        (c.phase === 'to-turn' || c.phase === 'waiting') &&
+        pickupQueueIdsRef.current.has(c.kidId) &&
+        c.pillar !== 0
       );
-      // Log gate selection (and deduplicated holds)
-      if (admittedDescendIds.size > 0) {
-        addLog('info', `GATE-DESCEND  admitting #${readyToDescend[0].seq} onto ramp (rampCars=${rampCars.length})`);
-        heldEntryIds.current.clear(); // new descent — reset entry hold tracking
+      const admittedDescendId: number | null =
+        rampTopClear && readyToDescend.length > 0
+          ? readyToDescend[0].id
+          : null;
+      if (admittedDescendId !== null) {
+        addLog('info', `GATE-DESCEND  admitting #${readyToDescend[0].seq} onto ramp (x=${Math.round(readyToDescend[0].x)} ramp=${rampQueue.length})`);
+        heldDescendIds.current.clear();
+        heldEntryIds.current.clear();
+      } else if (readyToDescend.length > 0 && !heldDescendIds.current.has(readyToDescend[0].id)) {
+        heldDescendIds.current.add(readyToDescend[0].id);
+        addLog('warn', `GATE-HOLD-DESCEND  #${readyToDescend[0].seq} waiting (rampTopClear=${rampTopClear} entryPointClear=${entryPointClear})`);
       }
-      readyToDescend.slice(admittedDescendIds.size).forEach(c => {
-        if (!heldDescendIds.current.has(c.id)) {
-          heldDescendIds.current.add(c.id);
-          addLog('warn', `GATE-HOLD-DESCEND  #${c.seq} ${c.kidName.split(' ')[0]} waiting on main road (rampTopClear=${rampTopClear} entryPointClear=${entryPointClear})`);
+
+      // Ramp-bottom hold positions: cars that can't enter cruising yet
+      // hold spaced MIN_GAP above CRUISE_Y so they don't pile up at the corner.
+      // rampQueue is sorted highest-y-first (most advanced index 0).
+      // Assign each waiting car a hold slot counting up from the bottom.
+      const rampBottomHoldY = new Map<number, number>(); // carId → max y to hold at
+      let holdSlot = 0;
+      for (const rc of rampQueue) {
+        if (rc.id === firstEntryId) continue; // this car IS entering — no hold
+        if (rc.y + CAR_SPEED >= CRUISE_Y) {
+          // car has reached (or nearly reached) the bottom — assign a hold slot
+          rampBottomHoldY.set(rc.id, CRUISE_Y - (holdSlot + 1) * MIN_GAP);
+          holdSlot++;
         }
-      });
-
-      // 5. Ramp vertical spacing: keep descending cars MIN_GAP apart so they
-      //    don't visually overlap while waiting to enter the lane.
-      //    Sort highest y first (most advanced = closest to LANE_R_Y).
-      const rampOccupants = carsRef.current
-        .filter(c => c.phase === 'descending')
-        .sort((a, b) => b.y - a.y);
-      const maxYMap = new Map<number, number>(); // carId → max allowed y
-      for (let i = 1; i < rampOccupants.length; i++) {
-        // each car must stay at least MIN_GAP above the car in front of it
-        maxYMap.set(rampOccupants[i].id, rampOccupants[i - 1].y - MIN_GAP);
       }
 
-      // 6. Left-lane safety
-      //
-      //    6a. Following-distance for ALL left-lane cars.
-      //        Include awaiting-confirm, returning, and exiting so that:
-      //        - Exiting cars don't drive through awaiting-confirm cars
-      //        - Multiple returning/exiting cars maintain gap between each other
-      //        Sort by x (leftmost first = furthest behind).
-      // Per-lane following-distance maps (L = laneSlot 0, R = laneSlot 1)
+      // ── Lane queue: moving cars only (cruising + lane-change + exiting) ────
+      // awaiting-confirm (parked) cars are intentionally excluded here — including
+      // them would cap cruising cars targeting P3/P4/P5 behind parked P1/P2 cars,
+      // causing a deadlock.  The per-car inline check in case 'cruising' handles
+      // parked-car collisions correctly (only stops behind the car's OWN target pillar).
+      // exiting cars ARE included: they move east at CAR_SPEED and a cruising car
+      // must not overtake them.
+      const laneQueue = carsRef.current
+        .filter(c => c.phase === 'cruising' || c.phase === 'lane-change' || c.phase === 'exiting')
+        .sort((a, b) => b.x - a.x); // highest x = most advanced
+      const maxXMap = new Map<number, number>(); // carId → max allowed x in lane
+      for (let i = 1; i < laneQueue.length; i++) {
+        const ahead  = laneQueue[i - 1];
+        const behind = laneQueue[i];
+        if (behind.phase === 'cruising') {
+          maxXMap.set(behind.id, Math.max(ahead.x - MIN_GAP, behind.x));
+        }
+      }
+      // Pre-sort parked/slow lane cars for the inline cap below.
+      // Include exiting cars: they start moving east after pickup and a cruising
+      // car must stay MIN_GAP behind until the exiting car clears the area.
+      const parkedLaneCars = carsRef.current
+        .filter(c => c.phase === 'awaiting-confirm' || c.phase === 'collecting' || c.phase === 'returning' || c.phase === 'exiting')
+        .sort((a, b) => a.x - b.x);
+
+      // ── Per-pillar occupancy ───────────────────────────────────────────────
+      const occupiedPillarSlots = new Set<string>(
+        carsRef.current
+          .filter(c => c.phase === 'lane-change' || c.phase === 'collecting' || c.phase === 'awaiting-confirm')
+          .map(c => `${c.pillar}-${c.laneSlot}`)
+      );
+
+      // ── Exit-lane following-distance (returning / exiting) ─────────────────
+      // Include cruising so exiting cars never drive through cars still moving east.
       const allPickupLaneLCars = carsRef.current
         .filter(c =>
           c.laneSlot === 0 && (
-            c.phase === 'awaiting-confirm' || c.phase === 'lane-change' ||
+            c.phase === 'cruising' || c.phase === 'lane-change' ||
+            c.phase === 'awaiting-confirm' ||
             c.phase === 'returning' || c.phase === 'exiting'
           )
         )
@@ -718,6 +766,7 @@ const PickupVisualization: React.FC = () => {
       const allPickupLaneRCars = carsRef.current
         .filter(c =>
           c.laneSlot === 1 && (
+            c.phase === 'cruising' || c.phase === 'lane-change' ||
             c.phase === 'awaiting-confirm' ||
             c.phase === 'returning' || c.phase === 'exiting'
           )
@@ -731,17 +780,12 @@ const PickupVisualization: React.FC = () => {
           leftLaneMaxXMapR.set(cur.id, Math.max(ahead.x - MIN_GAP, cur.x));
         }
       }
-      //    6b. Per-pillar lane-change gate: compute projected positions of all
-      //        departing (returning/exiting) cars and check per-pillar whether any
-      //        moving car is within 2×MIN_GAP of the target.  Exiting cars project
-      //        one tick ahead (x + CAR_SPEED) to prevent collisions on the next
-      //        frame.  This allows staggered lane-changes: P5 can enter once all
-      //        departing cars have passed its x, even while P1 cars are still exiting.
-      // Only laneSlot=0 cars do lane-changes — their departures gate LANE_L arrivals
+
+      // Per-pillar lane-change gate
       const leftLaneDepartXsL = carsRef.current
         .filter(c => c.laneSlot === 0 && (c.phase === 'returning' || c.phase === 'exiting'))
         .map(c => c.phase === 'exiting' ? c.x + CAR_SPEED : c.x);
-      const LANE_CHANGE_MARGIN = MIN_GAP * 2; // wider margin to prevent visual overlap
+      const LANE_CHANGE_MARGIN = MIN_GAP * 2;
       const leftLaneClearForPillar = new Map<number, boolean>();
       for (let p = 1; p <= PILLAR_COUNT; p++) {
         const px = pillarX(p);
@@ -749,19 +793,9 @@ const PickupVisualization: React.FC = () => {
         leftLaneClearForPillar.set(p, !blocked);
       }
 
-      // 6c. Batch coordination: a cruising car must wait until every car in the
-      //     SAME BATCH with a lower sequence number has left the cruising phase
-      //     (i.e. started lane-change).  Cars from a DIFFERENT batch are never
-      //     considered — batch N+1 must not wait for batch N to fully clear.
-      //
-      //     IMPORTANT: include cars parked at their pillar (phase='cruising' but
-      //     x >= pillarX) as well as still-traveling ones.  Without this, a car
-      //     that parks at its pillar drops out of the "traveling" set → min flips
-      //     to Infinity → higher-seq cars see batchReady=true and break through
-      //     out of order (the bug that first motivated this gate).
+      // Batch coordination: car waits until all lower-seq batch-mates leave cruising
       const batchStart = (car: Car) =>
         Math.floor((car.seq - 1) / PILLAR_COUNT) * PILLAR_COUNT + 1;
-      // Pre-compute: for each car, are there lower-seq SAME-BATCH mates still cruising?
       const cruisingSeqSet = new Set(
         carsRef.current.filter(c => c.phase === 'cruising').map(c => c.seq)
       );
@@ -773,15 +807,12 @@ const PickupVisualization: React.FC = () => {
         return false;
       };
 
-      // Pre-compute staggered parking slots for cars about to reach the turn
-      // (computed outside setCars for StrictMode safety)
+      // Staggered parking slots for to-turn cars not yet in the pickup queue
       let waitingCount = carsRef.current.filter(c => c.phase === 'waiting').length;
-      const parkingSlots = new Map<number, number>(); // carId -> parked X
+      const parkingSlots = new Map<number, number>(); // carId → parked X
       carsRef.current.forEach(car => {
         if (car.phase === 'to-turn' && !pickupQueueIdsRef.current.has(car.kidId)) {
-          const nx = car.x - CAR_SPEED;
-          if (nx <= TURN_X) {
-            // Park with spacing: use 80px (> MIN_GAP=70) so cars never cramp when resuming
+          if (car.x - CAR_SPEED <= TURN_X) {
             parkingSlots.set(car.id, TURN_X + waitingCount * 80);
             waitingCount++;
           }
@@ -794,6 +825,19 @@ const PickupVisualization: React.FC = () => {
       {
         const prev = carsRef.current;
         const mapped = prev.map((car): Car => {
+          // ── Ramp-admission: clear any residual scan-station wait so the car can drive ──
+          // Does NOT teleport — car drives at CAR_SPEED per tick toward TURN_X.
+          // The actual phase transition to 'descending' happens in case 'to-turn' below
+          // once the car physically arrives at TURN_X.
+          if (
+            car.phase === 'to-turn' &&
+            admittedDescendId === car.id &&
+            car.pillar !== 0 &&
+            car.wait > 0
+          ) {
+            return { ...car, wait: 0 }; // clear wait, re-evaluated next tick at full speed
+          }
+
           if (car.wait > 0) return { ...car, wait: car.wait - 1 };
           switch (car.phase) {
 
@@ -808,11 +852,10 @@ const PickupVisualization: React.FC = () => {
 
             case 'to-turn': {
               const nx = car.x - CAR_SPEED;
-              // Clamp to maintain gap behind the car ahead on the main road.
-              // Cap minX at car.x so the constraint can hold a car in place but
-              // NEVER push it rightward (which would eject freshly-spawned cars
-              // when multiple cars share the same spawn x and chain to minX > ENTRY_X).
-              const minX = Math.min(minXMap.get(car.id) ?? -Infinity, car.x);
+              // Admitted car ignores following-distance — it has permission to proceed
+              // to TURN_X regardless of the car behind it in the main queue.
+              const rawMinDist = admittedDescendId === car.id ? 0 : (mainQueueMinDistMap.get(car.id) ?? 0);
+              const minX = Math.min(TURN_X + rawMinDist, car.x);
               const clampedNx = Math.max(nx, minX);
 
               // ── Scan station: car stops at SCAN_X, initiates pillar assignment,
@@ -849,62 +892,46 @@ const PickupVisualization: React.FC = () => {
                   const parkX = parkingSlots.get(car.id) ?? TURN_X;
                   return { ...car, x: parkX, phase: 'waiting' };
                 }
-                // Arrive at the corner first; only start descending once already there.
-                if (car.x !== TURN_X) return { ...car, x: TURN_X };
-                // ── Scanner point: assign pillar here, not at scan time ──────
-                // Hold the car at TURN_X while waiting for the backend to assign a pillar.
-                if (car.pillar === 0) {
-                  if (!pillarRequestedRef.current.has(car.kidId)) {
-                    pillarRequestedRef.current.add(car.kidId);
-                    scanApi.assignPillar(car.kidId).then(rec => {
-                      const p = rec.pillar;
-                      const col = PILLAR_COLORS[p] ?? '#3880ff';
-                      const laneSlot: 0 | 1 = PICKUP_LANES === 2 ? (rec.seq % 2 === 0 ? 1 : 0) : 0;
-                      carsRef.current = carsRef.current.map(c =>
-                        c.kidId === car.kidId ? { ...c, pillar: p, color: col, laneSlot } : c
-                      );
-                      setCars(cs => cs.map(c =>
-                        c.kidId === car.kidId ? { ...c, pillar: p, color: col, laneSlot } : c
-                      ));
-                      setKidsSync(ks => ks.map(k =>
-                        k.id === car.kidId ? { ...k, pillar: p } : k
-                      ));
-                      addLog('info', `PILLAR-ASSIGN  #${rec.seq} ${rec.name} → P${p} (scanner)`);
-                    }).catch(() => {
-                      // On error, clear the request flag so it will retry next tick
-                      pillarRequestedRef.current.delete(car.kidId);
-                    });
-                  }
-                  return { ...car, x: TURN_X }; // hold at scanner until pillar assigned
+                // Scan station hasn't responded yet — hold at TURN_X
+                if (car.pillar === 0) return { ...car, x: TURN_X };
+                // Admitted to ramp — physically arrived at TURN_X, start descending
+                if (admittedDescendId === car.id) {
+                  addLog('info', `RAMP-ENTER  #${car.seq} ${car.kidName.split(' ')[0]} x=${Math.round(car.x)}→${TURN_X}`);
+                  return { ...car, wait: 0, x: TURN_X, y: ROAD_Y, rot: 270, phase: 'descending' };
                 }
-                // Gate: admit up to freeSlots cars per tick
-                if (!admittedDescendIds.has(car.id)) return { ...car, x: TURN_X };
-                return { ...car, x: TURN_X, y: ROAD_Y, rot: 270, phase: 'descending' };
+                // In queue but not yet admitted — hold at TURN_X
+                return { ...car, x: TURN_X };
               }
               return { ...car, x: clampedNx };
             }
             case 'descending': {
               const ny = car.y + CAR_SPEED;
-              // Clamp to maintain vertical gap behind the car ahead on the ramp
-              const maxY = maxYMap.get(car.id) ?? CRUISE_Y;
+              // Vertical gap from ramp-queue following-distance
+              const maxYFromGap = maxYMap.get(car.id) ?? CRUISE_Y;
+              // Hold slot: if this car is waiting at the bottom for entry clearance,
+              // cap it at its assigned hold position above CRUISE_Y to prevent piling up.
+              const holdY = rampBottomHoldY.get(car.id);
+              const maxY = holdY !== undefined ? Math.min(maxYFromGap, holdY) : maxYFromGap;
               const clampedY = Math.min(ny, maxY);
               if (clampedY >= CRUISE_Y) {
-                // Only the first-in-sequence car may enter cruising this tick;
-                // others hold at the ramp bottom until the next tick.
-                if (car.id !== firstEntryId) return { ...car, y: CRUISE_Y };
+                if (car.id !== firstEntryId) return { ...car, y: Math.min(clampedY, maxY) };
                 return { ...car, x: TURN_X, y: CRUISE_Y, rot: 360, phase: 'cruising' };
               }
               return { ...car, y: clampedY };
             }
             case 'cruising': {
               const tx = pillarX(car.pillar);
-              // Apply following-distance cap whenever one exists.
-              // Use Math.max(rawCap, car.x) so the cap can hold a car in place
-              // but NEVER snaps it backwards (handles the entry tick where
-              // rawCap === car.x — previously the rawCap > car.x guard incorrectly
-              // discarded that cap and let the car overshoot the car ahead).
               const rawCap = maxXMap.get(car.id);
-              const cap = rawCap !== undefined ? Math.max(rawCap, car.x) : Infinity;
+              let cap = rawCap !== undefined ? Math.max(rawCap, car.x) : Infinity;
+              // Single-lane: stop behind EVERY parked car ahead — no overtaking.
+              // Cars are dispatched in pillar order within a batch, so each car
+              // naturally queues behind the one ahead and advances as it departs.
+              for (const p of parkedLaneCars) {
+                if (p.id === car.id) continue;
+                if (p.x <= car.x) continue; // behind us
+                const parkedCap = Math.max(p.x - MIN_GAP, car.x);
+                if (parkedCap < cap) cap = parkedCap;
+              }
               const nx = Math.min(car.x + CAR_SPEED, cap);
 
               if (nx >= tx) {
@@ -954,6 +981,28 @@ const PickupVisualization: React.FC = () => {
               const rawCap = exitLaneMap.get(car.id);
               const cap = rawCap !== undefined ? Math.max(rawCap, car.x) : Infinity;
               return { ...car, x: Math.min(car.x + CAR_SPEED, cap) };
+            }
+
+            // ── Calzada Las Mitras entry: car travels south, turns right onto main road ──
+            case 'on-calz': {
+              const ny = car.y + CAR_SPEED;
+              // Derive maxY from unified mainQueueMinDistMap.
+              // rawMinDist ≥ aheadDist + MIN_GAP → car must stay rawMinDist px from ramp.
+              // distToRamp for on-calz = (ROAD_Y - y) + CALZ_ROAD_LEN
+              // → y ≤ ROAD_Y + CALZ_ROAD_LEN - rawMinDist
+              const rawMinDist = mainQueueMinDistMap.get(car.id) ?? 0;
+              const maxY = rawMinDist === 0
+                ? ROAD_Y  // no follower constraint — proceed freely to junction
+                : Math.max(car.y, ROAD_Y + CALZ_ROAD_LEN - rawMinDist);
+              const clampedY = Math.min(ny, maxY);
+              if (clampedY >= ROAD_Y) {
+                // Reached junction — take right turn (west) onto main road.
+                // No extra gate needed: mainQueueMinDistMap already holds this car
+                // back while the just-turned car is within MIN_GAP of CALZ_X.
+                addLog('info', `CALZ-TURN  #${car.seq} ${car.kidName} turned onto main road at x=${CALZ_X}`);
+                return { ...car, x: CALZ_X, y: ROAD_Y, rot: 180, phase: 'to-turn', wait: 0 };
+              }
+              return { ...car, y: clampedY };
             }
 
             default: return car;
@@ -1023,6 +1072,7 @@ const PickupVisualization: React.FC = () => {
       // Also fire the polls directly so new cars spawn without waiting for the next interval.
       scanApi.getAll()
         .then(records => {
+          if (isResettingRef.current) return;
           records.forEach(rec => {
             if (seenScanIds.current.has(rec.kid_id)) return;
             if (rec.picked_up) return;
@@ -1035,8 +1085,8 @@ const PickupVisualization: React.FC = () => {
             const id = nextId.current++;
             const newCar: Car = {
               id, seq: rec.seq, kidId: rec.kid_id, kidName: rec.name,
-              x: ENTRY_X, y: ROAD_Y, rot: 180,
-              color: '#94a3b8', phase: 'to-turn', wait: 0, pillar: 0, laneSlot: 0,
+              x: CALZ_X, y: CALZ_ENTRY_Y, rot: 90,
+              color: '#94a3b8', phase: 'on-calz', wait: 0, pillar: 0, laneSlot: 0,
             };
             if (isPickupStartedRef.current) pickupQueueIdsRef.current.add(rec.kid_id);
             carsRef.current = [...carsRef.current, newCar];
@@ -1145,6 +1195,32 @@ const PickupVisualization: React.FC = () => {
           )}
         </div>
 
+        {/* ── Queue sizes HUD strip ── */}
+        {isPlaying && (
+          <div style={{
+            display: 'flex', gap: 6, padding: '3px 16px', alignItems: 'center',
+            flexWrap: 'wrap', background: '#00000020', borderBottom: '1px solid #ffffff10',
+            fontSize: 11, fontFamily: 'monospace',
+          }}>
+            <span style={{ color: '#888' }}>Queues:</span>
+            {([
+              { label: 'Calzada', count: cars.filter(c => c.phase === 'on-calz').length, color: '#60a5fa' },
+              { label: 'Main road', count: cars.filter(c => c.phase === 'to-turn' || c.phase === 'waiting').length, color: '#a78bfa' },
+              { label: 'Ramp', count: cars.filter(c => c.phase === 'descending').length, color: '#f59e0b' },
+              { label: 'Lane', count: cars.filter(c => c.phase === 'cruising' || c.phase === 'lane-change').length, color: '#34d399' },
+              { label: 'At pillar', count: cars.filter(c => c.phase === 'awaiting-confirm').length, color: '#f87171' },
+              { label: 'Exiting', count: cars.filter(c => c.phase === 'returning' || c.phase === 'exiting').length, color: '#94a3b8' },
+            ] as const).map(q => (
+              <span key={q.label} style={{
+                background: `${q.color}18`, border: `1px solid ${q.color}44`,
+                borderRadius: 5, padding: '1px 7px', color: q.color,
+              }}>
+                {q.label}: <b>{q.count}</b>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* ── Throughput HUD strip ── */}
         {queueMetrics && (
           <div style={{
@@ -1191,11 +1267,81 @@ const PickupVisualization: React.FC = () => {
         {/* ── AI Queue Optimizer Panel ── */}
         <AiDashboard />
 
+        {/* 2-D Scene — horizontally scrollable so all zones render at true map proportions */}
+        <div ref={sceneScrollRef} style={{ overflowX: 'auto', overflowY: 'auto', padding: '0 0 8px 0', maxHeight: '92vh' }}>
         {/* 2-D Scene */}
         <div style={{
           position: 'relative', width: SCENE_W, height: SCENE_H,
           background: '#1a1a2e', margin: '0 auto', borderRadius: 12, overflow: 'hidden',
+          minWidth: SCENE_W,
         }}>
+
+          {/* ── Ground layer (below all roads, lanes, cages) ── */}
+
+          {/* School campus fill — LEFT side, aligns with real map */}
+          <div style={{
+            position: 'absolute',
+            left: SCHOOL_LEFT_X,
+            top: ROAD_Y + 22,
+            width: SCHOOL_RIGHT_X - SCHOOL_LEFT_X,
+            height: LANE_R_Y - (ROAD_Y + 22) + 18,
+            background: '#1c2a1c',
+            zIndex: 0,
+          }} />
+          {/* School building footprint — yellow border matching the map marking */}
+          <div style={{
+            position: 'absolute',
+            left: SCHOOL_LEFT_X,
+            top: ROAD_Y + 22,
+            width: SCHOOL_RIGHT_X - SCHOOL_LEFT_X,
+            height: CAGE_BOTTOM + 65 - (ROAD_Y + 22),
+            border: '2px solid #ffc409cc',
+            borderRadius: 4,
+            background: 'transparent',
+            boxShadow: '0 0 16px #ffc40930, inset 0 0 18px #ffc4090a',
+            zIndex: 1,
+            pointerEvents: 'none',
+          }} />
+          {/* School name tag — inside top-left of yellow border */}
+          <div style={{
+            position: 'absolute',
+            left: SCHOOL_LEFT_X + 6,
+            top: ROAD_Y + 26,
+            color: '#ffc409ee',
+            fontSize: 8,
+            fontWeight: 'bold',
+            letterSpacing: 0.8,
+            zIndex: 2,
+            userSelect: 'none',
+            pointerEvents: 'none',
+            textShadow: '0 0 8px #ffc40988',
+          }}>CAMBRIDGE MONTERREY · Campus Dominio</div>
+
+          {/* Empty / open ground — RIGHT of school, between school and Calz. Las Mitras */}
+          <div style={{
+            position: 'absolute',
+            left: SCHOOL_RIGHT_X,
+            top: ROAD_Y + 22,
+            width: CALZ_X - SCHOOL_RIGHT_X,
+            height: LANE_R_Y - (ROAD_Y + 22) + 18,
+            background: 'repeating-linear-gradient(135deg,#22291a 0px,#22291a 8px,#1e2517 8px,#1e2517 16px)',
+            borderLeft: '1px dashed #ffffff18',
+            zIndex: 0,
+          }} />
+          {/* Empty ground label — centered in the empty strip */}
+          <div style={{
+            position: 'absolute',
+            left: SCHOOL_RIGHT_X + Math.round((CALZ_X - SCHOOL_RIGHT_X) / 2) - 20,
+            top: CAGE_TOP + 30,
+            color: '#ffffff22',
+            fontSize: 8,
+            letterSpacing: 1.5,
+            userSelect: 'none',
+            pointerEvents: 'none',
+            zIndex: 1,
+            textAlign: 'center',
+            width: 80,
+          }}>EMPTY GROUND</div>
 
           {/* Main horizontal road — clickable to show waiting cars */}
           <div
@@ -1207,7 +1353,7 @@ const PickupVisualization: React.FC = () => {
             cursor: 'pointer',
           }} />
           {/* Road centre dashes */}
-          {Array.from({ length: 18 }).map((_, i) => (
+          {Array.from({ length: 56 }).map((_, i) => (
             <div key={i} style={{
               position: 'absolute', top: ROAD_Y - 1, left: 60 + i * 62,
               width: 40, height: 2, background: '#ffffff40',
@@ -1269,10 +1415,162 @@ const PickupVisualization: React.FC = () => {
             color: '#ffffff40', fontSize: 9, letterSpacing: 1,
           }}>{PICKUP_LANES === 2 ? 'RIGHT LANE -- PICKUP 2' : 'RIGHT LANE -- THROUGH TRAFFIC'}</div>
 
-          {/* Entry arrow */}
+          {/* ── Calzada Las Mitras — north/south through road ── */}
+
+          {/* ── NORTH extension: above main road, cars come from north heading south ── */}
           <div style={{
-            position: 'absolute', top: ROAD_Y - 14, right: 14, color: '#ffffffaa', fontSize: 22,
+            position: 'absolute',
+            left: CALZ_X,
+            top: 0,
+            width: SCENE_W - CALZ_X,
+            height: ROAD_Y - 22,   // from scene top down to main-road top edge
+            background: '#3a3a3a',
+            borderLeft: '2px solid #ffffff22',
+            zIndex: 2,
+          }} />
+          {/* North centre-line dashes */}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={`calz-n-dash-${i}`} style={{
+              position: 'absolute',
+              left: CALZ_X + Math.round((SCENE_W - CALZ_X) / 2),
+              top: 6 + i * 18,
+              width: 2,
+              height: 10,
+              background: '#ffffff35',
+              zIndex: 3,
+            }} />
+          ))}
+          {/* ↓ entry arrows at the very top — cars approach from north heading south */}
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X + Math.round((SCENE_W - CALZ_X) / 2) - 14,
+            top: 2,
+            fontSize: 11,
+            color: '#ffc409bb',
+            fontWeight: 'bold',
+            letterSpacing: 3,
+            userSelect: 'none',
+            zIndex: 4,
+          }}>↓ ↓</div>
+          {/* "from north" caption */}
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X + 4,
+            top: 2,
+            fontSize: 7,
+            color: '#ffffff30',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 4,
+          }}>from north ↓</div>
+
+          {/* Corner fill: the full main-road band at CALZ_X — connects north + south road sections */}
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X,
+            top: ROAD_Y - 22,
+            width: SCENE_W - CALZ_X,
+            height: 44,
+            background: '#3a3a3a',
+            zIndex: 2,
+          }} />
+          {/* Right-turn marker: ↙ cars from north turn RIGHT (west) onto main road */}
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X + 4,
+            top: ROAD_Y - 32,
+            background: '#ffc40922',
+            border: '1px solid #ffc40966',
+            borderRadius: 6,
+            padding: '2px 6px',
+            fontSize: 9,
+            fontWeight: 'bold',
+            color: '#ffc409cc',
+            whiteSpace: 'nowrap',
+            userSelect: 'none',
+            zIndex: 5,
+          }}>↙ right turn → west</div>
+
+          {/* ── SOUTH extension: below main road, road continues south ── */}
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X,
+            top: ROAD_Y + 22,
+            width: SCENE_W - CALZ_X,
+            height: SCENE_H - (ROAD_Y + 22),
+            background: '#3a3a3a',
+            borderLeft: '2px solid #ffffff22',
+            zIndex: 2,
+          }} />
+          {/* South centre-line dashes */}
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={`calz-s-dash-${i}`} style={{
+              position: 'absolute',
+              left: CALZ_X + Math.round((SCENE_W - CALZ_X) / 2),
+              top: ROAD_Y + 50 + i * 68,
+              width: 2,
+              height: 40,
+              background: '#ffffff35',
+              zIndex: 3,
+            }} />
+          ))}
+          {/* Road name label on south section — rotated */}
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X + Math.round((SCENE_W - CALZ_X) / 2) + 6,
+            top: ROAD_Y + 80,
+            fontSize: 8,
+            fontWeight: 'bold',
+            color: '#ffffff55',
+            letterSpacing: 1.5,
+            writingMode: 'vertical-rl' as React.CSSProperties['writingMode'],
+            transform: 'rotate(180deg)',
+            userSelect: 'none',
+            pointerEvents: 'none',
+            zIndex: 3,
+          }}>CALZ. LAS MITRAS</div>
+          {/* ↑ south-bound arrows + caption */}
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X + Math.round((SCENE_W - CALZ_X) / 2) - 10,
+            bottom: 26,
+            fontSize: 15,
+            color: '#ffc40988',
+            fontWeight: 'bold',
+            letterSpacing: 2,
+            userSelect: 'none',
+            zIndex: 3,
+          }}>↑</div>
+          <div style={{
+            position: 'absolute',
+            left: CALZ_X + 4,
+            bottom: 8,
+            fontSize: 7,
+            color: '#ffffff30',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 3,
+          }}>from south ↑</div>
+
+          {/* Entry arrow on main road — just left of the junction */}
+          <div style={{
+            position: 'absolute', top: ROAD_Y - 14, left: SCAN_X - 80, color: '#ffffffaa', fontSize: 16,
           }}>Entry &lt;--</div>
+
+          {/* ── Scale bar (bottom-right), matching map's 200 ft indicator ── */}
+          <div style={{
+            position: 'absolute', bottom: 10, left: CALZ_X + 4,
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+            userSelect: 'none', pointerEvents: 'none',
+          }}>
+            {/* Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+              <div style={{ width: 1, height: 8, background: '#ffffff60' }} />
+              <div style={{ width: SCALE_BAR_PX, height: 3, background: '#ffffff60' }} />
+              <div style={{ width: 1, height: 8, background: '#ffffff60' }} />
+            </div>
+            <div style={{ fontSize: 8, color: '#ffffff50', letterSpacing: 0.5 }}>200 ft</div>
+          </div>
 
           {/* Scanner marker / scan station gate */}
           <div style={{
@@ -1526,6 +1824,7 @@ const PickupVisualization: React.FC = () => {
             const missingCount = seenScanIds.current.size - allCars.length;
             type Group = { label: string; color: string; bg: string; border: string; phases: Phase[] };
             const groups: Group[] = [
+              { label: 'ON CALZADA',     color: '#ffc40999', bg: '#ffc40911',    border: '#ffc40933',   phases: ['on-calz'] },
               { label: 'ON MAIN ROAD',   color: '#ffce0099', bg: '#ffffff08',    border: 'transparent', phases: ['waiting', 'to-turn'] },
               { label: 'ENTERING RAMP',  color: '#ff6b3599', bg: '#ff6b3511',    border: '#ff6b3533',   phases: ['descending'] },
               { label: 'IN PICKUP LANE', color: '#10dc6099', bg: '#10dc6011',    border: '#10dc6033',   phases: ['cruising', 'lane-change'] },
@@ -1533,7 +1832,7 @@ const PickupVisualization: React.FC = () => {
               { label: 'DEPARTING',      color: '#7044ffcc', bg: '#7044ff11',    border: '#7044ff33',   phases: ['returning', 'exiting'] },
             ];
             const phaseLabel: Record<Phase, string> = {
-              'waiting': 'parked', 'to-turn': 'en route',
+              'on-calz': 'on Calzada', 'waiting': 'parked', 'to-turn': 'en route',
               'descending': 'ramp', 'cruising': 'cruising', 'lane-change': 'turning',
               'collecting': 'arriving', 'awaiting-confirm': 'waiting confirm',
               'returning': 'returning', 'exiting': 'exiting',
@@ -1763,6 +2062,8 @@ const PickupVisualization: React.FC = () => {
               </div>
             );
           })()}
+        </div>
+        {/* close horizontal scroll wrapper */}
         </div>
 
         {/* ══ Log Panel ══════════════════════════════════════════════════════ */}

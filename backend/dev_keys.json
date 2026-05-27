@@ -1,0 +1,6 @@
+{
+  "GOOGLE_MAPS_API_KEY": "AIzaSyByScI4R0fNVQkChuOxNLcDDabeh7lb1iw",
+  "GOOGLE_GEMINI_API_KEY": "AIzaSyA41XhiQfydhYVYVO_-ByfFds7_cHp8uyA",
+  "JWT_SECRET": "Qw8vZp3sTn6rXy2bLk9eJf4uGh1cVm7pRs5dWq0aBz8yN",
+  "GOOGLE_GEMINI_MODEL": "gemini-2.5-flash"
+}
